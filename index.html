@@ -1,0 +1,1526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Swirla Café — Operations & Buying Console</title>
+  
+  <!-- Native Web App Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Swirla Ops">
+  <meta name="theme-color" content="#0284c7">
+
+  <!-- Firebase Realtime Sync SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --primary-light: #e0f2fe;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+      --danger: #ef4444;
+      --danger-light: #fee2e2;
+      --success: #10b981;
+      --success-light: #d1fae5;
+      --warning: #f59e0b;
+      --warning-light: #fef3c7;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      padding-bottom: 90px;
+    }
+
+    /* Floating Toast System */
+    #toast-container {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 90%;
+      max-width: 420px;
+      pointer-events: none;
+    }
+
+    .toast {
+      pointer-events: auto;
+      padding: 12px 18px;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+      animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      transition: all 0.25s ease;
+    }
+
+    .toast.toast-success { background: #059669; border-left: 5px solid #34d399; }
+    .toast.toast-info { background: #0284c7; border-left: 5px solid #38bdf8; }
+    .toast.toast-warning { background: #d97706; border-left: 5px solid #fbbf24; }
+    .toast.toast-error { background: #dc2626; border-left: 5px solid #f87171; }
+    .toast.hide { animation: toastOut 0.25s ease forwards; }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-16px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to { opacity: 0; transform: translateY(-16px) scale(0.96); }
+    }
+
+    /* Header */
+    header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--primary);
+      letter-spacing: -0.5px;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .sync-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      display: inline-block;
+    }
+
+    .header-badges {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .badge-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: #f1f5f9;
+      color: var(--text);
+    }
+
+    .telegram-badge {
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      border-color: rgba(2, 132, 199, 0.2);
+    }
+
+    /* Tabs */
+    .nav-tabs {
+      display: flex;
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+    }
+
+    .nav-tab {
+      flex: 1;
+      text-align: center;
+      padding: 14px 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-muted);
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .nav-tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .counter-pill {
+      background: var(--primary);
+      color: #fff;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      font-size: 11px;
+    }
+
+    /* Controls Bar */
+    .controls-bar {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      background: var(--card-bg);
+      outline: none;
+    }
+
+    .search-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-light);
+    }
+
+    .filters-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filters-row select {
+      flex: 1;
+      min-width: 140px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      font-size: 13px;
+      font-weight: 500;
+      outline: none;
+    }
+
+    .actions-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 9px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s ease;
+    }
+
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:active { background: var(--primary-dark); }
+    .btn-outline { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); }
+    .btn-outline.active { background: var(--warning-light); border-color: var(--warning); color: #92400e; }
+
+    /* Items Grid */
+    .items-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+      padding: 0 16px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .sku-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+    }
+
+    .sku-card.below-min {
+      border-left: 4px solid var(--danger);
+    }
+
+    .sku-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .photo-trigger {
+      width: 52px;
+      height: 52px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      border: 1px dashed #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: var(--text-muted);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .photo-trigger img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    .sku-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .sku-vendor {
+      font-size: 11px;
+      font-weight: 700;
+      color: #be123c;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .sku-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 2px 0;
+    }
+
+    .sku-cat {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .sku-stock-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f8fafc;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    .sku-qty-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .qty-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .qty-input {
+      width: 44px;
+      height: 28px;
+      text-align: center;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .sku-card-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: auto;
+    }
+
+    .sku-card-actions .btn {
+      flex: 1;
+      justify-content: center;
+      font-size: 12px;
+      padding: 7px;
+    }
+
+    .btn-ordered {
+      background: #f1f5f9 !important;
+      color: #94a3b8 !important;
+      border: 1px solid #cbd5e1 !important;
+    }
+
+    /* Buy Checklist View */
+    .checklist-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 16px;
+      display: none;
+    }
+
+    .vendor-group {
+      background: var(--card-bg);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .vendor-header {
+      background: #f1f5f9;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 800;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .checklist-item {
+      padding: 12px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .checklist-item:last-child { border-bottom: none; }
+    .checklist-item.done { background: #f8fafc; opacity: 0.6; }
+    .checklist-item.done .cl-title { text-decoration: line-through; }
+
+    .cl-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .cl-title {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .cl-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .cl-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Fixed Bottom Ordering Bar */
+    .checkout-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--card-bg);
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      z-index: 1000;
+      box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .submitter-box {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .submitter-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .submitter-header label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .btn-text-link {
+      background: none;
+      border: none;
+      color: var(--primary);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .submitter-select {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 700;
+      background: #f8fafc;
+      color: var(--text);
+      outline: none;
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(2px);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-card {
+      background: #fff;
+      border-radius: 14px;
+      width: 100%;
+      max-width: 440px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .modal-title {
+      font-size: 17px;
+      font-weight: 800;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .form-group label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .form-group input, .form-group select {
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 10px;
+    }
+
+    .leader-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Floating Toast Notifications -->
+  <div id="toast-container"></div>
+
+  <!-- Header -->
+  <header>
+    <div>
+      <div class="brand-title">Swirla Café</div>
+      <div class="brand-subtitle"><span class="sync-dot"></span> Live Cloud Sync Active</div>
+    </div>
+    <div class="header-badges">
+      <div class="badge-btn" onclick="openLeadersModal()">
+        👥 Team
+      </div>
+      <div id="telegramStatusBadge" class="badge-btn telegram-badge" onclick="openTelegramModal()">
+        ✈️ Telegram Active
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="nav-tabs">
+    <div class="nav-tab active" id="tabCatalog" onclick="switchView('catalog')">
+      Inventory Catalog <span class="counter-pill" id="catalogCount">197</span>
+    </div>
+    <div class="nav-tab" id="tabChecklist" onclick="switchView('checklist')">
+      Buy Checklist <span class="counter-pill" id="checklistCount">0</span>
+    </div>
+  </nav>
+
+  <!-- VIEW 1: Catalog -->
+  <main id="catalogView">
+    <section class="controls-bar">
+      <input type="text" id="searchBox" class="search-input" placeholder="🔍 Search catalog items..." oninput="renderCatalog()">
+      
+      <div class="filters-row">
+        <select id="vendorFilter" onchange="renderCatalog()">
+          <option value="">(All Vendors)</option>
+        </select>
+        <select id="categoryFilter" onchange="renderCatalog()">
+          <option value="">(All Categories)</option>
+        </select>
+      </div>
+
+      <div class="actions-row">
+        <button class="btn btn-primary" onclick="openSkuModal()">+ Add New SKU</button>
+        <button class="btn btn-outline" id="filterLowStockBtn" onclick="toggleLowStockFilter()">⚠️ Show Low Stock Only</button>
+      </div>
+    </section>
+
+    <div class="items-grid" id="itemsGrid"></div>
+  </main>
+
+  <!-- VIEW 2: Buy Checklist -->
+  <main id="checklistView" class="checklist-container">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 style="font-size:16px; font-weight:800;">Buying & Prep List</h3>
+      <button class="btn btn-outline" style="font-size:11px;" onclick="clearFulfilled()">Clear Fulfilled</button>
+    </div>
+
+    <div id="checklistItemsList"></div>
+
+    <div class="checkout-bar">
+      <div class="submitter-box">
+        <div class="submitter-header">
+          <label for="orderSubmitter">Submitted By</label>
+          <button class="btn-text-link" onclick="openLeadersModal()">⚙️ Edit</button>
+        </div>
+        <select id="orderSubmitter" class="submitter-select" onchange="saveSubmitter()"></select>
+      </div>
+      <button class="btn btn-primary" id="sendTelegramBtn" style="padding:12px 20px; font-size:14px;" onclick="dispatchToTelegram()">
+        ✈️ Send Order to Telegram
+      </button>
+    </div>
+  </main>
+
+  <!-- Hidden Camera Input for Photos -->
+  <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoCapture(event)">
+
+  <!-- Manage Shift Leaders Modal -->
+  <div class="modal-overlay" id="leadersModal">
+    <div class="modal-card">
+      <div class="modal-title">👥 Manage Shift Leaders & Staff</div>
+      <p style="font-size:12px; color:var(--text-muted); line-height:1.4;">
+        Add or remove team members. Updates reflect instantly across all connected phones.
+      </p>
+
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="newLeaderName" class="search-input" placeholder="Enter name (e.g., Delia)">
+        <button class="btn btn-primary" onclick="addLeader()">+ Add</button>
+      </div>
+
+      <div id="leadersList" style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; margin:6px 0;"></div>
+
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="closeModal('leadersModal')">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Telegram Setup Modal -->
+  <div class="modal-overlay" id="telegramModal">
+    <div class="modal-card">
+      <div class="modal-title">✈️ Telegram Notification Setup</div>
+      <p style="font-size:12px; color:var(--text-muted); line-height:1.4;">
+        Alerts are sent to your Swirla team group chat whenever an order is submitted.
+      </p>
+      <div class="form-group">
+        <label>Bot Token</label>
+        <input type="text" id="cfgBotToken">
+      </div>
+      <div class="form-group">
+        <label>Chat ID / Group ID</label>
+        <input type="text" id="cfgChatId">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('telegramModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveTelegramSettings()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SKU Add/Edit Modal -->
+  <div class="modal-overlay" id="skuModal">
+    <div class="modal-card">
+      <div class="modal-title" id="skuModalTitle">Edit SKU Parameters</div>
+      <input type="hidden" id="editSkuId">
+      <div class="form-group">
+        <label>Item Name</label>
+        <input type="text" id="editSkuName">
+      </div>
+      <div class="form-group">
+        <label>Vendor</label>
+        <input type="text" id="editSkuVendor">
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <input type="text" id="editSkuCategory">
+      </div>
+      <div style="display:flex; gap:10px;">
+        <div class="form-group" style="flex:1;">
+          <label>Min Par</label>
+          <input type="number" id="editSkuMin">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>Max Par</label>
+          <input type="number" id="editSkuMax">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('skuModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSkuModal()">Save SKU</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* 1. Firebase Realtime Sync Setup */
+    const firebaseConfig = {
+      databaseURL: "https://swirla-inventory-default-rtdb.firebaseio.com"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    /* 2. Default Pre-configured Swirla Telegram Credentials */
+    const DEFAULT_BOT_TOKEN = '9066972020:AAFRYa6-yEqallP4oPmCZuAne0R9Crw7joQ';
+    const DEFAULT_CHAT_ID = '-5153397824';
+
+    let botToken = localStorage.getItem('swirla_bot_token') || DEFAULT_BOT_TOKEN;
+    let chatId = localStorage.getItem('swirla_chat_id') || DEFAULT_CHAT_ID;
+
+    /* 3. Dynamic Leader Roster */
+    const DEFAULT_LEADERS = ['Sabrina', 'Prissila', 'Ehab', 'Manager'];
+    let leaders = DEFAULT_LEADERS;
+
+    // Toast Notification Engine
+    function showToast(message, type = 'success', duration = 3000) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      
+      let icon = '✅';
+      if (type === 'info') icon = 'ℹ️';
+      if (type === 'warning') icon = '⚠️';
+      if (type === 'error') icon = '❌';
+
+      toast.innerHTML = `<span>${icon}</span><span>${message}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('hide');
+        setTimeout(() => toast.remove(), 250);
+      }, duration);
+    }
+
+    /* 4. Master SKU Dataset (197 Total Items) */
+    const INITIAL_SKUS = [
+      { id: '1', vendor: 'Alaqsa', name: 'Karak Tea', cat: 'Beverage Bases & Spices', stock: 5, min: 0, max: 0 },
+      { id: '2', vendor: 'Alaqsa', name: 'Sahlab Powder', cat: 'Beverage Bases & Spices', stock: 2, min: 0, max: 0 },
+      { id: '3', vendor: 'Alaqsa', name: 'Zaatar', cat: 'Beverage Bases & Spices', stock: 1, min: 0, max: 0 },
+      { id: '4', vendor: 'Alaqsa', name: 'Labneh', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
+      { id: '5', vendor: 'Amazon', name: 'Lables Stickers kitchen', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '6', vendor: 'Amazon', name: 'Lables Stickers latte', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '7', vendor: 'Amazon', name: 'Paper straws', cat: 'Packaging & Disposables', stock: 1, min: 10, max: 40 },
+      { id: '8', vendor: 'Amazon', name: 'Receipt Paper', cat: 'Packaging & Disposables', stock: 4, min: 5, max: 20 },
+      { id: '9', vendor: 'Amazon', name: 'Smootie straw', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '10', vendor: 'Amazon', name: 'Waffle Wood Sticks', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '11', vendor: 'Amazon', name: 'Dolce De Leche Cream', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '12', vendor: 'Amazon', name: 'Coconut Flakes', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '13', vendor: 'Amazon', name: 'Gummy Bears', cat: 'Toppings & Add-ins', stock: 1, min: 0, max: 0 },
+      { id: '14', vendor: 'Amazon', name: 'Marshmallows', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '15', vendor: 'Amazon Fresh', name: 'Zesty Tomato Sauce', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
+      { id: '16', vendor: 'Costco', name: 'Apple Juice', cat: 'Beverage Bases & Spices', stock: 0, min: 5, max: 20 },
+      { id: '17', vendor: 'Costco', name: 'Pineapple Juice', cat: 'Beverage Bases & Spices', stock: 0, min: 0, max: 0 },
+      { id: '18', vendor: 'Costco', name: 'Coconut Milk', cat: 'Dairy & Milks', stock: 12, min: 4, max: 12 },
+      { id: '19', vendor: 'Costco', name: 'Whipped Cream', cat: 'Dairy & Milks', stock: 8, min: 2, max: 8 },
+      { id: '20', vendor: 'Costco', name: 'Basil Pesto', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '21', vendor: 'Costco', name: 'Sourdough Bread', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '22', vendor: 'Costco', name: 'Whey Protein Vanilla', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
+      { id: '23', vendor: 'Costco', name: 'Chia Seeds', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '24', vendor: 'Costco', name: 'Chocolate pudding', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '25', vendor: 'Costco', name: 'Dates', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '26', vendor: 'Costco', name: 'Granola', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '27', vendor: 'Costco', name: 'Strawberry pudding', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '28', vendor: 'Costco', name: 'Vanilla pudding', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '29', vendor: 'Gelotti', name: 'Gelato: Cannoli', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
+      { id: '30', vendor: 'Gelotti', name: 'Gelato: Chocolate', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
+      { id: '31', vendor: 'Gelotti', name: 'Gelato: Cookies & Cream', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
+      { id: '32', vendor: 'Gelotti', name: 'Gelato: Espresso', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
+      { id: '33', vendor: 'Gelotti', name: 'Gelato: Hazelnut', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
+      { id: '34', vendor: 'Gelotti', name: 'Gelato: Mango', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
+      { id: '35', vendor: 'Gelotti', name: 'Gelato: Mint Chip', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
+      { id: '36', vendor: 'Gelotti', name: 'Gelato: Nutella', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
+      { id: '37', vendor: 'Gelotti', name: 'Gelato: Pistachio', cat: 'Frozen Goods', stock: 3, min: 2, max: 3 },
+      { id: '38', vendor: 'Gelotti', name: 'Gelato: Stracciatella', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
+      { id: '39', vendor: 'Gelotti', name: 'Gelato: Strawberry', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
+      { id: '40', vendor: 'Gelotti', name: 'Gelato: Tiramisu', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
+      { id: '41', vendor: 'Gelotti', name: 'Gelato: Vanilla', cat: 'Frozen Goods', stock: 6, min: 3, max: 6 },
+      { id: '42', vendor: 'Instacart', name: 'Coffee Beans Decaf', cat: 'Beverage Bases & Spices', stock: 0, min: 5, max: 20 },
+      { id: '43', vendor: 'Int Delight', name: 'Croissants', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '44', vendor: 'Int Delight', name: 'danish', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '45', vendor: 'Int Delight', name: 'Muffin', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '46', vendor: 'Local', name: 'Clorox', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
+      { id: '47', vendor: 'Local', name: 'Dish Soap', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
+      { id: '48', vendor: 'Local', name: 'Fabuloso', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
+      { id: '49', vendor: 'Local', name: 'Windex', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
+      { id: '50', vendor: 'Lovetta', name: 'Biscoff Cream', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '51', vendor: 'Lovetta', name: 'Milk Chocolate Drizzle', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '52', vendor: 'Lovetta', name: 'Pistachio Cream', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '53', vendor: 'Lovetta', name: 'White Chocolate Cream', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '54', vendor: 'Lovetta', name: 'Kunafa', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '55', vendor: 'Online', name: 'Hand Soap Bags', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
+      { id: '56', vendor: 'Online', name: 'Boxes Crepe with Lids', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '57', vendor: 'Online', name: 'Cups 16 Oz Latte with Lids', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '58', vendor: 'Online', name: 'Cups Mojito', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '59', vendor: 'Online', name: 'Cups Pudding', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '60', vendor: 'Restaurant Depot', name: 'Cardamom', cat: 'Beverage Bases & Spices', stock: 0, min: 5, max: 20 },
+      { id: '61', vendor: 'Restaurant Depot', name: 'Chili Flakes', cat: 'Beverage Bases & Spices', stock: 0, min: 5, max: 20 },
+      { id: '62', vendor: 'Restaurant Depot', name: 'Cinnamon Powder', cat: 'Beverage Bases & Spices', stock: 0, min: 5, max: 20 },
+      { id: '63', vendor: 'Restaurant Depot', name: 'Cocoa Milk Chocolate Hot Choco', cat: 'Beverage Bases & Spices', stock: 0, min: 5, max: 20 },
+      { id: '64', vendor: 'Restaurant Depot', name: 'Coffee Beans', cat: 'Beverage Bases & Spices', stock: 4, min: 5, max: 20 },
+      { id: '65', vendor: 'Restaurant Depot', name: 'Ginger', cat: 'Beverage Bases & Spices', stock: 0, min: 0, max: 0 },
+      { id: '66', vendor: 'Restaurant Depot', name: 'Moroccan Mint Tea', cat: 'Beverage Bases & Spices', stock: 0, min: 0, max: 0 },
+      { id: '67', vendor: 'Restaurant Depot', name: 'Pepper', cat: 'Beverage Bases & Spices', stock: 0, min: 0, max: 0 },
+      { id: '68', vendor: 'Restaurant Depot', name: 'Red Bull', cat: 'Beverage Bases & Spices', stock: 0, min: 0, max: 0 },
+      { id: '69', vendor: 'Restaurant Depot', name: 'Water', cat: 'Beverage Bases & Spices', stock: 0, min: 0, max: 0 },
+      { id: '70', vendor: 'Restaurant Depot', name: 'Garbage bags', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
+      { id: '71', vendor: 'Restaurant Depot', name: 'PaperTowels', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
+      { id: '72', vendor: 'Restaurant Depot', name: 'roll towels', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
+      { id: '73', vendor: 'Restaurant Depot', name: 'Toilet Paper', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
+      { id: '74', vendor: 'Restaurant Depot', name: '2% Milk', cat: 'Dairy & Milks', stock: 18, min: 6, max: 18 },
+      { id: '75', vendor: 'Restaurant Depot', name: 'Almond Milk', cat: 'Dairy & Milks', stock: 10, min: 3, max: 10 },
+      { id: '76', vendor: 'Restaurant Depot', name: 'Butter', cat: 'Dairy & Milks', stock: 0, min: 0, max: 0 },
+      { id: '77', vendor: 'Restaurant Depot', name: 'Half & Half', cat: 'Dairy & Milks', stock: 0, min: 0, max: 0 },
+      { id: '78', vendor: 'Restaurant Depot', name: 'Heavy Cream', cat: 'Dairy & Milks', stock: 0, min: 0, max: 0 },
+      { id: '79', vendor: 'Restaurant Depot', name: 'Lactaid Milk', cat: 'Dairy & Milks', stock: 12, min: 5, max: 12 },
+      { id: '80', vendor: 'Restaurant Depot', name: 'Oat Milk', cat: 'Dairy & Milks', stock: 18, min: 6, max: 18 },
+      { id: '81', vendor: 'Restaurant Depot', name: 'Soy Milk', cat: 'Dairy & Milks', stock: 0, min: 0, max: 0 },
+      { id: '82', vendor: 'Restaurant Depot', name: 'whipped Topping', cat: 'Dairy & Milks', stock: 0, min: 0, max: 0 },
+      { id: '83', vendor: 'Restaurant Depot', name: 'Whole Milk', cat: 'Dairy & Milks', stock: 12, min: 4, max: 12 },
+      { id: '84', vendor: 'Restaurant Depot', name: 'Almond Butter', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '85', vendor: 'Restaurant Depot', name: 'Baking powder', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '86', vendor: 'Restaurant Depot', name: 'Baking Soda', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '87', vendor: 'Restaurant Depot', name: 'Brown Sugar Small Pack', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '88', vendor: 'Restaurant Depot', name: 'Flour', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '89', vendor: 'Restaurant Depot', name: 'Oil Spray Pam', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '90', vendor: 'Restaurant Depot', name: 'Olive Oil', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '91', vendor: 'Restaurant Depot', name: 'Salt', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '92', vendor: 'Restaurant Depot', name: 'Splenda Small Pack', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '93', vendor: 'Restaurant Depot', name: 'Sugar (Granulated)', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '94', vendor: 'Restaurant Depot', name: 'Sugar Small Pack', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '95', vendor: 'Restaurant Depot', name: 'Sugar Gelato Cone', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '96', vendor: 'Restaurant Depot', name: 'Vanilla Extract', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '97', vendor: 'Restaurant Depot', name: 'Vegetable Oil', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '98', vendor: 'Restaurant Depot', name: 'Waffer Gelato Cone', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '99', vendor: 'Restaurant Depot', name: 'waffle Gelato Cone', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '100', vendor: 'Restaurant Depot', name: 'Cherry Tomatoes', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '101', vendor: 'Restaurant Depot', name: 'Cucumber', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '102', vendor: 'Restaurant Depot', name: 'Fresh Fruit Avocado', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '103', vendor: 'Restaurant Depot', name: 'Fresh Fruit Banana', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '104', vendor: 'Restaurant Depot', name: 'Fresh Fruit Blueberries', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '105', vendor: 'Restaurant Depot', name: 'Fresh Fruit Green Apples', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '106', vendor: 'Restaurant Depot', name: 'Fresh Fruit Mango', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '107', vendor: 'Restaurant Depot', name: 'Fresh Fruit Pineapple', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '108', vendor: 'Restaurant Depot', name: 'Fresh Fruit Raspberry', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '109', vendor: 'Restaurant Depot', name: 'Fresh Fruit Strawberry', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '110', vendor: 'Restaurant Depot', name: 'Fresh Fruit Watermelon', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '111', vendor: 'Restaurant Depot', name: 'Lime', cat: 'Fresh Produce', stock: 0, min: 2, max: 5 },
+      { id: '112', vendor: 'Restaurant Depot', name: 'Microgreens', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '113', vendor: 'Restaurant Depot', name: 'Mint Leaves', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '114', vendor: 'Restaurant Depot', name: 'Mushrooms', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '115', vendor: 'Restaurant Depot', name: 'Olives', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '116', vendor: 'Restaurant Depot', name: 'Spinach', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
+      { id: '117', vendor: 'Restaurant Depot', name: 'Frozen Fruit Mango', cat: 'Frozen Goods', stock: 0, min: 0, max: 0 },
+      { id: '118', vendor: 'Restaurant Depot', name: 'Frozen Fruit Mixed Berries', cat: 'Frozen Goods', stock: 0, min: 0, max: 0 },
+      { id: '119', vendor: 'Restaurant Depot', name: 'Frozen Fruit Pineapple', cat: 'Frozen Goods', stock: 0, min: 0, max: 0 },
+      { id: '120', vendor: 'Restaurant Depot', name: 'Frozen Fruit Strawberry', cat: 'Frozen Goods', stock: 0, min: 0, max: 0 },
+      { id: '121', vendor: 'Restaurant Depot', name: 'Coffee Filters', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '122', vendor: 'Restaurant Depot', name: 'Gloves', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '123', vendor: 'Restaurant Depot', name: 'Napkins', cat: 'Packaging & Disposables', stock: 4, min: 5, max: 20 },
+      { id: '124', vendor: 'Restaurant Depot', name: 'Paper plates', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '125', vendor: 'Restaurant Depot', name: 'Plastic Cups Outside', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '126', vendor: 'Restaurant Depot', name: 'sleeves for Hot Cups', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '127', vendor: 'Restaurant Depot', name: 'Stir Sticks', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '128', vendor: 'Restaurant Depot', name: 'Utensils Kit', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
+      { id: '129', vendor: 'Restaurant Depot', name: 'Cheddar Cheese', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
+      { id: '130', vendor: 'Restaurant Depot', name: 'Eggs', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
+      { id: '131', vendor: 'Restaurant Depot', name: 'Feta Cheese', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
+      { id: '132', vendor: 'Restaurant Depot', name: 'Fresh Mozzarella', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
+      { id: '133', vendor: 'Restaurant Depot', name: 'Greek Yogurt Vanilla', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
+      { id: '134', vendor: 'Restaurant Depot', name: 'Mozzarella Cheese (Shredded)', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
+      { id: '135', vendor: 'Restaurant Depot', name: 'Agave', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '136', vendor: 'Restaurant Depot', name: 'Caramel Syrup Hershey\'s', cat: 'Syrups & Sauces', stock: 4, min: 2, max: 4 },
+      { id: '137', vendor: 'Restaurant Depot', name: 'Chocolate Syrup Hershey', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '138', vendor: 'Restaurant Depot', name: 'Condensed Milk', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '139', vendor: 'Restaurant Depot', name: 'Honey', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '140', vendor: 'Restaurant Depot', name: 'Maple Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '141', vendor: 'Restaurant Depot', name: 'Nutella', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '142', vendor: 'Restaurant Depot', name: 'Peanut Butter Cream', cat: 'Syrups & Sauces', stock: 5, min: 2, max: 5 },
+      { id: '143', vendor: 'Restaurant Depot', name: 'Strawberry Syrup Hershey', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '144', vendor: 'Restaurant Depot', name: 'Almonds', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '145', vendor: 'Restaurant Depot', name: 'Biscoff / Lotus Crumbs', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '146', vendor: 'Restaurant Depot', name: 'Cashews', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '147', vendor: 'Restaurant Depot', name: 'Chocolate Sprinkles', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '148', vendor: 'Restaurant Depot', name: 'Cinnamon Toast Crunch', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '149', vendor: 'Restaurant Depot', name: 'Cocoa Dust', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '150', vendor: 'Restaurant Depot', name: 'Ferrero', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '151', vendor: 'Restaurant Depot', name: 'Fruity Pebbles', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '152', vendor: 'Restaurant Depot', name: 'Graham Crumble', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '153', vendor: 'Restaurant Depot', name: 'Kinder Bueno', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '154', vendor: 'Restaurant Depot', name: 'M&M\'s', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '155', vendor: 'Restaurant Depot', name: 'Nilla cookie', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '156', vendor: 'Restaurant Depot', name: 'Oreo', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '157', vendor: 'Restaurant Depot', name: 'Pecans', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '158', vendor: 'Restaurant Depot', name: 'Pistachio Whole', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '159', vendor: 'Restaurant Depot', name: 'Powdered Sugar', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '160', vendor: 'Restaurant Depot', name: 'Rainbow Sprinkles', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '161', vendor: 'Restaurant Depot', name: 'Reese\'s Cups', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '162', vendor: 'Restaurant Depot', name: 'Reese\'s Pieces', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
+      { id: '163', vendor: 'ShopRite', name: 'Bubly Mint Lime Water', cat: 'Beverage Bases & Spices', stock: 0, min: 5, max: 20 },
+      { id: '164', vendor: 'ShopRite', name: 'Truffle Oil', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
+      { id: '165', vendor: 'ShopRite', name: 'Turkey Oven Roasted Breast', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
+      { id: '166', vendor: 'Webstaurant', name: 'Matcha Powder', cat: 'Beverage Bases & Spices', stock: 0, min: 0, max: 0 },
+      { id: '167', vendor: 'Webstaurant', name: 'Blue Curacao Syrup', cat: 'Syrups & Sauces', stock: 7, min: 3, max: 7 },
+      { id: '168', vendor: 'Webstaurant', name: 'Blueberry Syrup', cat: 'Syrups & Sauces', stock: 5, min: 1, max: 5 },
+      { id: '169', vendor: 'Webstaurant', name: 'Brown Sugar Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '170', vendor: 'Webstaurant', name: 'Cane Sugar Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '171', vendor: 'Webstaurant', name: 'Caramel Syrup Sugar Free', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '172', vendor: 'Webstaurant', name: 'Caramel Syrup Drizzle', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '173', vendor: 'Webstaurant', name: 'Chai Latte Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '174', vendor: 'Webstaurant', name: 'Coconut Syrup', cat: 'Syrups & Sauces', stock: 5, min: 2, max: 5 },
+      { id: '175', vendor: 'Webstaurant', name: 'Cookie Butter Syrup', cat: 'Syrups & Sauces', stock: 2, min: 1, max: 2 },
+      { id: '176', vendor: 'Webstaurant', name: 'Dark chocolate Syrup Drizzle', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '177', vendor: 'Webstaurant', name: 'Dulce de Leche Syrup Drizzle', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '178', vendor: 'Webstaurant', name: 'Green Apple Syrup', cat: 'Syrups & Sauces', stock: 5, min: 2, max: 5 },
+      { id: '179', vendor: 'Webstaurant', name: 'Hazelnut Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '180', vendor: 'Webstaurant', name: 'Hazelnut Syrup Sugar Free', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '181', vendor: 'Webstaurant', name: 'Kiwi Syrup', cat: 'Syrups & Sauces', stock: 5, min: 2, max: 5 },
+      { id: '182', vendor: 'Webstaurant', name: 'Mango Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '183', vendor: 'Webstaurant', name: 'Mango Syrup Puree', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '184', vendor: 'Webstaurant', name: 'Passion Fruit Syrup', cat: 'Syrups & Sauces', stock: 7, min: 4, max: 7 },
+      { id: '185', vendor: 'Webstaurant', name: 'Peach Syrup', cat: 'Syrups & Sauces', stock: 5, min: 2, max: 5 },
+      { id: '186', vendor: 'Webstaurant', name: 'Pineapple Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '187', vendor: 'Webstaurant', name: 'Pineapple Syrup Puree', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '188', vendor: 'Webstaurant', name: 'Pumpkin Pie Syrup Drizzle', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '189', vendor: 'Webstaurant', name: 'Raspberry Syrup', cat: 'Syrups & Sauces', stock: 5, min: 3, max: 5 },
+      { id: '190', vendor: 'Webstaurant', name: 'Strawberry Syrup', cat: 'Syrups & Sauces', stock: 4, min: 2, max: 4 },
+      { id: '191', vendor: 'Webstaurant', name: 'Strawberry Syrup Puree', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '192', vendor: 'Webstaurant', name: 'Ube Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '193', vendor: 'Webstaurant', name: 'Vanilla Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '194', vendor: 'Webstaurant', name: 'Vanilla Syrup Sugar Free', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '195', vendor: 'Webstaurant', name: 'Watermelon Syrup', cat: 'Syrups & Sauces', stock: 4, min: 2, max: 4 },
+      { id: '196', vendor: 'Webstaurant', name: 'White Chocolate Syrup Drizzle', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
+      { id: '197', vendor: 'Webstaurant', name: 'Wildberry Syrup Puree', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 }
+    ];
+
+    let skus = JSON.parse(localStorage.getItem('swirla_skus')) || INITIAL_SKUS;
+    let buyOrders = JSON.parse(localStorage.getItem('swirla_orders')) || {};
+    let itemPhotos = JSON.parse(localStorage.getItem('swirla_photos')) || {};
+    let filterLowStock = false;
+    let activeCameraSkuId = null;
+
+    /* 5. Firebase Realtime Listeners */
+    // Synchronize SKUs
+    db.ref('swirla/skus').on('value', snapshot => {
+      const data = snapshot.val();
+      if (data && Array.isArray(data) && data.length > 0) {
+        skus = data;
+        localStorage.setItem('swirla_skus', JSON.stringify(skus));
+        populateFilters();
+        renderCatalog();
+      } else {
+        // First run initialization in cloud
+        db.ref('swirla/skus').set(INITIAL_SKUS);
+      }
+    });
+
+    // Synchronize Buy Checklist
+    db.ref('swirla/orders').on('value', snapshot => {
+      buyOrders = snapshot.val() || {};
+      localStorage.setItem('swirla_orders', JSON.stringify(buyOrders));
+      renderCatalog();
+      renderChecklist();
+    });
+
+    // Synchronize Team Leaders
+    db.ref('swirla/leaders').on('value', snapshot => {
+      const data = snapshot.val();
+      if (data && Array.isArray(data) && data.length > 0) {
+        leaders = data;
+      } else {
+        leaders = DEFAULT_LEADERS;
+        db.ref('swirla/leaders').set(DEFAULT_LEADERS);
+      }
+      renderLeaderOptions();
+      renderLeadersModalList();
+    });
+
+    function pushSkusToCloud() {
+      db.ref('swirla/skus').set(skus);
+      localStorage.setItem('swirla_skus', JSON.stringify(skus));
+    }
+
+    function pushOrdersToCloud() {
+      db.ref('swirla/orders').set(buyOrders);
+      localStorage.setItem('swirla_orders', JSON.stringify(buyOrders));
+    }
+
+    function pushLeadersToCloud() {
+      db.ref('swirla/leaders').set(leaders);
+    }
+
+    // Team Management
+    function renderLeaderOptions() {
+      const select = document.getElementById('orderSubmitter');
+      const savedCurrent = localStorage.getItem('swirla_submitter') || leaders[0];
+      select.innerHTML = '';
+      leaders.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        if (name === savedCurrent) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function openLeadersModal() {
+      renderLeadersModalList();
+      document.getElementById('leadersModal').style.display = 'flex';
+      document.getElementById('newLeaderName').focus();
+    }
+
+    function renderLeadersModalList() {
+      const listContainer = document.getElementById('leadersList');
+      listContainer.innerHTML = '';
+      leaders.forEach((name, idx) => {
+        const row = document.createElement('div');
+        row.className = 'leader-row';
+        row.innerHTML = `
+          <span style="font-weight:700; font-size:14px;">${name}</span>
+          <button class="btn btn-outline" style="padding:4px 8px; font-size:11px; color:var(--danger);" onclick="removeLeader(${idx})">✕</button>
+        `;
+        listContainer.appendChild(row);
+      });
+    }
+
+    function addLeader() {
+      const input = document.getElementById('newLeaderName');
+      const name = input.value.trim();
+      if (!name) return;
+      if (leaders.includes(name)) {
+        showToast('Leader already exists.', 'warning');
+        return;
+      }
+      leaders.push(name);
+      input.value = '';
+      pushLeadersToCloud();
+      showToast(`Added ${name} to Team`, 'success');
+    }
+
+    function removeLeader(idx) {
+      if (leaders.length <= 1) {
+        showToast('You must keep at least one team member.', 'warning');
+        return;
+      }
+      const removed = leaders.splice(idx, 1)[0];
+      pushLeadersToCloud();
+      showToast(`Removed ${removed}`, 'info');
+    }
+
+    function saveSubmitter() {
+      const val = document.getElementById('orderSubmitter').value;
+      localStorage.setItem('swirla_submitter', val);
+    }
+
+    // View Navigation
+    function switchView(view) {
+      document.getElementById('catalogView').style.display = (view === 'catalog') ? 'block' : 'none';
+      document.getElementById('checklistView').style.display = (view === 'checklist') ? 'block' : 'none';
+      document.getElementById('tabCatalog').classList.toggle('active', view === 'catalog');
+      document.getElementById('tabChecklist').classList.toggle('active', view === 'checklist');
+
+      if (view === 'checklist') renderChecklist();
+      else renderCatalog();
+    }
+
+    // Filters
+    function populateFilters() {
+      const vendors = [...new Set(skus.map(s => s.vendor))].sort();
+      const categories = [...new Set(skus.map(s => s.cat))].sort();
+
+      const vSelect = document.getElementById('vendorFilter');
+      const cSelect = document.getElementById('categoryFilter');
+
+      const currentV = vSelect.value;
+      const currentC = cSelect.value;
+
+      vSelect.innerHTML = '<option value="">(All Vendors)</option>';
+      vendors.forEach(v => vSelect.innerHTML += `<option value="${v}" ${v === currentV ? 'selected' : ''}>${v}</option>`);
+
+      cSelect.innerHTML = '<option value="">(All Categories)</option>';
+      categories.forEach(c => cSelect.innerHTML += `<option value="${c}" ${c === currentC ? 'selected' : ''}>${c}</option>`);
+    }
+
+    // Catalog Rendering
+    function renderCatalog() {
+      const query = document.getElementById('searchBox').value.toLowerCase().trim();
+      const selVendor = document.getElementById('vendorFilter').value;
+      const selCat = document.getElementById('categoryFilter').value;
+      const grid = document.getElementById('itemsGrid');
+
+      let filtered = skus.filter(item => {
+        const matchesQuery = item.name.toLowerCase().includes(query) || item.vendor.toLowerCase().includes(query);
+        const matchesVendor = !selVendor || item.vendor === selVendor;
+        const matchesCat = !selCat || item.cat === selCat;
+        const matchesLow = !filterLowStock || (item.min > 0 && item.stock <= item.min);
+        return matchesQuery && matchesVendor && matchesCat && matchesLow;
+      });
+
+      document.getElementById('catalogCount').innerText = filtered.length;
+      grid.innerHTML = '';
+
+      filtered.forEach(item => {
+        const isBelowMin = item.min > 0 && item.stock <= item.min;
+        const isOrdered = buyOrders[item.id] !== undefined;
+        const photo = itemPhotos[item.id];
+
+        const card = document.createElement('div');
+        card.className = `sku-card ${isBelowMin ? 'below-min' : ''}`;
+        card.innerHTML = `
+          <div class="sku-header">
+            <div class="photo-trigger" onclick="triggerPhoto('${item.id}')">
+              ${photo ? `<img src="${photo}">` : `<span>📷</span><span>+ Photos</span>`}
+            </div>
+            <div class="sku-info">
+              <div class="sku-vendor">${item.vendor}</div>
+              <div class="sku-name" title="${item.name}">${item.name}</div>
+              <div class="sku-cat">${item.cat}</div>
+            </div>
+          </div>
+
+          <div class="sku-stock-row">
+            <div>
+              <span style="font-weight:700;">${item.stock} Units</span>
+              ${isBelowMin ? '<span style="color:var(--danger); font-size:11px; margin-left:4px;">(Below Min)</span>' : ''}
+              <div style="font-size:10px; color:var(--text-muted);">Stock / Min: ${item.min} / Max: ${item.max}</div>
+            </div>
+            <div class="sku-qty-controls">
+              <button class="qty-btn" onclick="updateStock('${item.id}', -1)">−</button>
+              <input type="number" class="qty-input" value="${item.stock}" onchange="setStock('${item.id}', this.value)">
+              <button class="qty-btn" onclick="updateStock('${item.id}', 1)">+</button>
+            </div>
+          </div>
+
+          <div class="sku-card-actions">
+            <button class="btn btn-outline" onclick="openSkuModal('${item.id}')">Edit</button>
+            <button class="btn ${isOrdered ? 'btn-ordered' : 'btn-primary'}" onclick="toggleOrder('${item.id}')">
+              ${isOrdered ? '✓ In Checklist' : '+ Order'}
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      updateChecklistBadge();
+    }
+
+    // Stock Modifications
+    function updateStock(id, delta) {
+      const item = skus.find(s => s.id === id);
+      if (item) {
+        item.stock = Math.max(0, item.stock + delta);
+        pushSkusToCloud();
+        renderCatalog();
+      }
+    }
+
+    function setStock(id, val) {
+      const item = skus.find(s => s.id === id);
+      if (item) {
+        item.stock = Math.max(0, parseInt(val) || 0);
+        pushSkusToCloud();
+        renderCatalog();
+      }
+    }
+
+    function toggleLowStockFilter() {
+      filterLowStock = !filterLowStock;
+      const btn = document.getElementById('filterLowStockBtn');
+      btn.classList.toggle('active', filterLowStock);
+      renderCatalog();
+    }
+
+    // Photo Capture
+    function triggerPhoto(id) {
+      activeCameraSkuId = id;
+      document.getElementById('cameraInput').click();
+    }
+
+    function handlePhotoCapture(event) {
+      const file = event.target.files[0];
+      if (!file || !activeCameraSkuId) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        itemPhotos[activeCameraSkuId] = e.target.result;
+        try {
+          localStorage.setItem('swirla_photos', JSON.stringify(itemPhotos));
+        } catch (err) {}
+        renderCatalog();
+        showToast('Photo attached', 'info');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Order Actions
+    function toggleOrder(id) {
+      const item = skus.find(s => s.id === id);
+      if (!item) return;
+
+      if (buyOrders[id]) {
+        delete buyOrders[id];
+        showToast(`Removed ${item.name}`, 'info');
+      } else {
+        const orderQty = (item.max > item.stock) ? (item.max - item.stock) : 1;
+        buyOrders[id] = { qty: orderQty, done: false };
+        showToast(`Added ${item.name}`, 'success');
+      }
+      pushOrdersToCloud();
+      renderCatalog();
+    }
+
+    function updateChecklistBadge() {
+      const count = Object.keys(buyOrders).length;
+      document.getElementById('checklistCount').innerText = count;
+    }
+
+    // Checklist View
+    function renderChecklist() {
+      const container = document.getElementById('checklistItemsList');
+      const orderIds = Object.keys(buyOrders);
+
+      if (orderIds.length === 0) {
+        container.innerHTML = `
+          <div style="text-align:center; padding:40px 16px; color:var(--text-muted);">
+            <div style="font-size:32px; margin-bottom:8px;">📋</div>
+            <div style="font-weight:700;">Buying checklist is empty.</div>
+            <div style="font-size:13px; margin-top:4px;">Tap "+ Order" on catalog items to build a list.</div>
+          </div>
+        `;
+        return;
+      }
+
+      const grouped = {};
+      orderIds.forEach(id => {
+        const item = skus.find(s => s.id === id);
+        if (item) {
+          if (!grouped[item.vendor]) grouped[item.vendor] = [];
+          grouped[item.vendor].push({ item, order: buyOrders[id] });
+        }
+      });
+
+      container.innerHTML = '';
+      Object.keys(grouped).sort().forEach(vendor => {
+        const groupCard = document.createElement('div');
+        groupCard.className = 'vendor-group';
+
+        let itemsHtml = '';
+        grouped[vendor].forEach(({ item, order }) => {
+          itemsHtml += `
+            <div class="checklist-item ${order.done ? 'done' : ''}">
+              <div class="cl-left">
+                <input type="checkbox" style="transform:scale(1.2);" ${order.done ? 'checked' : ''} onchange="toggleDone('${item.id}')">
+                <div>
+                  <div class="cl-title">${item.name}</div>
+                  <div class="cl-sub">Stock: ${item.stock} / Max: ${item.max}</div>
+                </div>
+              </div>
+              <div class="cl-right">
+                <span style="font-size:12px; font-weight:700; color:var(--text-muted);">Buy:</span>
+                <input type="number" class="qty-input" value="${order.qty}" min="1" onchange="setOrderQty('${item.id}', this.value)">
+                <button class="btn btn-outline" style="padding:4px 8px; font-size:11px; color:var(--danger);" onclick="toggleOrder('${item.id}');">✕</button>
+              </div>
+            </div>
+          `;
+        });
+
+        groupCard.innerHTML = `
+          <div class="vendor-header">
+            <span>📍 ${vendor}</span>
+            <span>${grouped[vendor].length} Items</span>
+          </div>
+          ${itemsHtml}
+        `;
+        container.appendChild(groupCard);
+      });
+    }
+
+    function toggleDone(id) {
+      if (buyOrders[id]) {
+        buyOrders[id].done = !buyOrders[id].done;
+        pushOrdersToCloud();
+      }
+    }
+
+    function setOrderQty(id, val) {
+      if (buyOrders[id]) {
+        buyOrders[id].qty = Math.max(1, parseInt(val) || 1);
+        pushOrdersToCloud();
+      }
+    }
+
+    function clearFulfilled() {
+      Object.keys(buyOrders).forEach(id => {
+        if (buyOrders[id].done) delete buyOrders[id];
+      });
+      pushOrdersToCloud();
+      showToast('Fulfilled items cleared', 'info');
+    }
+
+    // Telegram Dispatch
+    async function dispatchToTelegram() {
+      const orderIds = Object.keys(buyOrders);
+      if (orderIds.length === 0) {
+        showToast('Checklist is empty.', 'warning');
+        return;
+      }
+
+      if (!botToken || !chatId) {
+        showToast('Please set Bot Token and Chat ID in Telegram Setup.', 'error');
+        openTelegramModal();
+        return;
+      }
+
+      const submitter = document.getElementById('orderSubmitter').value || 'Staff';
+      const sendBtn = document.getElementById('sendTelegramBtn');
+      sendBtn.innerText = '⏳ Dispatching...';
+      sendBtn.disabled = true;
+
+      const grouped = {};
+      orderIds.forEach(id => {
+        const item = skus.find(s => s.id === id);
+        if (item) {
+          if (!grouped[item.vendor]) grouped[item.vendor] = [];
+          grouped[item.vendor].push({ item, qty: buyOrders[id].qty });
+        }
+      });
+
+      const now = new Date();
+      const timeStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + 
+                      now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+      let text = `🛒 *Swirla Café — Buy Order*\n`;
+      text += `👤 *Submitted by:* ${submitter}\n`;
+      text += `📅 *${timeStr}*\n\n`;
+
+      Object.keys(grouped).sort().forEach(vendor => {
+        text += `📍 *${vendor}*\n`;
+        grouped[vendor].forEach(({ item, qty }) => {
+          text += `• *${item.name}* — *Qty: ${qty}* (Stock: ${item.stock})\n`;
+        });
+        text += `\n`;
+      });
+
+      text += `_Sent via Swirla Operations Console_`;
+
+      try {
+        const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: text,
+            parse_mode: 'Markdown'
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.ok) {
+          showToast(`Order dispatched by ${submitter}!`, 'success', 4000);
+        } else {
+          showToast(`Telegram Error: ${data.description}`, 'error', 5000);
+        }
+      } catch (err) {
+        showToast('Network error while dispatching to Telegram.', 'error');
+      } finally {
+        sendBtn.innerText = '✈️ Send Order to Telegram';
+        sendBtn.disabled = false;
+      }
+    }
+
+    // Modal Helpers
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+
+    function openTelegramModal() {
+      document.getElementById('cfgBotToken').value = botToken;
+      document.getElementById('cfgChatId').value = chatId;
+      document.getElementById('telegramModal').style.display = 'flex';
+    }
+
+    function saveTelegramSettings() {
+      botToken = document.getElementById('cfgBotToken').value.trim();
+      chatId = document.getElementById('cfgChatId').value.trim();
+      localStorage.setItem('swirla_bot_token', botToken);
+      localStorage.setItem('swirla_chat_id', chatId);
+      closeModal('telegramModal');
+      showToast('Telegram settings saved', 'success');
+    }
+
+    function openSkuModal(id = null) {
+      const modal = document.getElementById('skuModal');
+      const title = document.getElementById('skuModalTitle');
+      const idField = document.getElementById('editSkuId');
+      const nameField = document.getElementById('editSkuName');
+      const vendorField = document.getElementById('editSkuVendor');
+      const catField = document.getElementById('editSkuCategory');
+      const minField = document.getElementById('editSkuMin');
+      const maxField = document.getElementById('editSkuMax');
+
+      if (id) {
+        const item = skus.find(s => s.id === id);
+        title.innerText = 'Edit SKU Parameters';
+        idField.value = item.id;
+        nameField.value = item.name;
+        vendorField.value = item.vendor;
+        catField.value = item.cat;
+        minField.value = item.min;
+        maxField.value = item.max;
+      } else {
+        title.innerText = 'Add New SKU';
+        idField.value = '';
+        nameField.value = '';
+        vendorField.value = '';
+        catField.value = '';
+        minField.value = 0;
+        maxField.value = 0;
+      }
+      modal.style.display = 'flex';
+    }
+
+    function saveSkuModal() {
+      const id = document.getElementById('editSkuId').value;
+      const name = document.getElementById('editSkuName').value.trim();
+      const vendor = document.getElementById('editSkuVendor').value.trim();
+      const cat = document.getElementById('editSkuCategory').value.trim();
+      const min = parseInt(document.getElementById('editSkuMin').value) || 0;
+      const max = parseInt(document.getElementById('editSkuMax').value) || 0;
+
+      if (!name || !vendor || !cat) {
+        showToast('Please fill out all fields.', 'warning');
+        return;
+      }
+
+      if (id) {
+        const item = skus.find(s => s.id === id);
+        if (item) {
+          item.name = name;
+          item.vendor = vendor;
+          item.cat = cat;
+          item.min = min;
+          item.max = max;
+          showToast(`Updated ${name}`, 'success');
+        }
+      } else {
+        const newSku = {
+          id: Date.now().toString(),
+          name, vendor, cat, min, max, stock: 0
+        };
+        skus.unshift(newSku);
+        showToast(`Added ${name}`, 'success');
+      }
+
+      pushSkusToCloud();
+      populateFilters();
+      renderCatalog();
+      closeModal('skuModal');
+    }
+
+    window.onload = function() {
+      renderLeaderOptions();
+      populateFilters();
+      renderCatalog();
+    };
+  </script>
+</body>
+</html>
