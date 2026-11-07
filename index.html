@@ -560,10 +560,11 @@
       font-weight: 800;
     }
 
-    .form-group {
+   .form-group {
       display: flex;
       flex-direction: column;
       gap: 4px;
+      min-width: 0;
     }
 
     .form-group label {
@@ -573,6 +574,8 @@
     }
 
     .form-group input, .form-group select {
+      width: 100%;
+      min-width: 0;
       padding: 9px 12px;
       border-radius: 8px;
       border: 1px solid var(--border);
