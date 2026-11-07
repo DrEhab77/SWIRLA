@@ -754,6 +754,50 @@
       </div>
     </div>
   </div>
+  <!-- Item Detail & Photo Gallery Modal -->
+  <div class="modal-overlay" id="itemDetailModal">
+    <div class="modal-card" style="max-height: 90vh; overflow-y: auto;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+        <div>
+          <div id="detailSkuVendor" style="font-size:11px; font-weight:800; color:#be123c; text-transform:uppercase; letter-spacing:0.5px;"></div>
+          <div id="detailSkuName" style="font-size:18px; font-weight:800; color:var(--text); margin:2px 0;"></div>
+          <div id="detailSkuCat" style="font-size:12px; color:var(--text-muted);"></div>
+        </div>
+        <button class="btn btn-outline" style="padding:4px 9px; font-size:14px;" onclick="closeModal('itemDetailModal')">✕</button>
+      </div>
+
+      <!-- Par & Stock Bar -->
+      <div style="display:flex; justify-content:space-around; background:#f8fafc; padding:10px; border-radius:10px; border:1px solid var(--border); text-align:center; margin-bottom:12px;">
+        <div>
+          <div id="detailSkuStock" style="font-size:17px; font-weight:800; color:var(--primary);">0</div>
+          <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Current Stock</div>
+        </div>
+        <div style="border-left:1px solid var(--border);"></div>
+        <div>
+          <div id="detailSkuMin" style="font-size:17px; font-weight:800;">0</div>
+          <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Min Par</div>
+        </div>
+        <div style="border-left:1px solid var(--border);"></div>
+        <div>
+          <div id="detailSkuMax" style="font-size:17px; font-weight:800;">0</div>
+          <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Max Par</div>
+        </div>
+      </div>
+
+      <!-- Photos Gallery -->
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <span style="font-size:13px; font-weight:800;">Reference Photos (<span id="detailPhotoCount">0</span>/3)</span>
+          <button class="btn btn-primary" id="detailAddBtn" style="padding:5px 10px; font-size:12px;" onclick="triggerPhotoFromDetail()">📷 + Add Photo</button>
+        </div>
+        <div id="detailGalleryList" style="display:flex; flex-direction:column; gap:12px;"></div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:12px;">
+        <button class="btn btn-outline" onclick="closeModal('itemDetailModal')">Close</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     /* 1. Firebase Realtime Sync Setup */
@@ -1177,7 +1221,7 @@ const photoCount = photos.length;
 </div>
             <div class="sku-info">
               <div class="sku-vendor">${item.vendor}</div>
-              <div class="sku-name" title="${item.name}">${item.name}</div>
+              <div class="sku-name" title="${item.name}" onclick="openItemDetailModal('${item.id}')" style="cursor:pointer; color:var(--primary); text-decoration:underline; text-underline-offset:2px;">${item.name}</div>
               <div class="sku-cat">${item.cat}</div>
             </div>
           </div>
@@ -1292,6 +1336,7 @@ function handlePhotoCapture(event) {
 
       renderCatalog();
       showToast(`Photo saved (${itemPhotos[activeCameraSkuId].length}/3)`, 'info');
+      if (activeDetailSkuId === activeCameraSkuId) renderDetailPhotos();
     };
     img.src = e.target.result;
   };
@@ -1358,7 +1403,7 @@ function handlePhotoCapture(event) {
               <div class="cl-left">
                 <input type="checkbox" style="transform:scale(1.2);" ${order.done ? 'checked' : ''} onchange="toggleDone('${item.id}')">
                 <div>
-                  <div class="cl-title">${item.name}</div>
+                  <div class="cl-title" onclick="openItemDetailModal('${item.id}')" style="cursor:pointer; color:var(--primary); text-decoration:underline; text-underline-offset:2px;">${item.name}</div>
                   <div class="cl-sub">Stock: ${item.stock} / Max: ${item.max}</div>
                 </div>
               </div>
@@ -1564,6 +1609,78 @@ function handlePhotoCapture(event) {
       renderCatalog();
       closeModal('skuModal');
     }
+    // --- Item Detail & Photo Gallery Functions ---
+let activeDetailSkuId = null;
+
+function openItemDetailModal(id) {
+  const item = skus.find(s => s.id === id);
+  if (!item) return;
+  activeDetailSkuId = id;
+
+  document.getElementById('detailSkuVendor').innerText = item.vendor;
+  document.getElementById('detailSkuName').innerText = item.name;
+  document.getElementById('detailSkuCat').innerText = item.cat;
+  document.getElementById('detailSkuStock').innerText = `${item.stock} Units`;
+  document.getElementById('detailSkuMin').innerText = item.min;
+  document.getElementById('detailSkuMax').innerText = item.max;
+
+  renderDetailPhotos();
+  document.getElementById('itemDetailModal').style.display = 'flex';
+}
+
+function renderDetailPhotos() {
+  const id = activeDetailSkuId;
+  const container = document.getElementById('detailGalleryList');
+  const photos = Array.isArray(itemPhotos[id]) ? itemPhotos[id] : (itemPhotos[id] ? [itemPhotos[id]] : []);
+
+  document.getElementById('detailPhotoCount').innerText = photos.length;
+  const addBtn = document.getElementById('detailAddBtn');
+  addBtn.style.display = (photos.length >= 3) ? 'none' : 'inline-flex';
+
+  if (photos.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:24px 10px; background:#f8fafc; border-radius:10px; border:1px dashed var(--border); color:var(--text-muted); font-size:13px;">
+        No reference photos attached yet.<br>Tap <strong>📷 + Add Photo</strong> above to take one.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = '';
+  photos.forEach((photoUrl, index) => {
+    const card = document.createElement('div');
+    card.style.cssText = 'position:relative; background:#0f172a; border-radius:10px; overflow:hidden; border:1px solid var(--border); box-shadow:0 2px 8px rgba(0,0,0,0.15);';
+    card.innerHTML = `
+      <img src="${photoUrl}" style="width:100%; max-height:380px; object-fit:contain; display:block; background:#0f172a;">
+      <div style="position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.7); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px;">
+        Photo ${index + 1} of ${photos.length}
+      </div>
+      <button class="btn" style="position:absolute; top:8px; right:8px; background:#dc2626; color:#fff; padding:5px 10px; font-size:12px;" onclick="deletePhoto('${id}', ${index})">
+        🗑️ Delete Photo
+      </button>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function deletePhoto(id, photoIndex) {
+  if (!confirm('Delete this photo? This cannot be undone.')) return;
+  if (Array.isArray(itemPhotos[id])) {
+    itemPhotos[id].splice(photoIndex, 1);
+    if (itemPhotos[id].length === 0) delete itemPhotos[id];
+    try {
+      localStorage.setItem('swirla_photos', JSON.stringify(itemPhotos));
+    } catch (err) {}
+    renderDetailPhotos();
+    renderCatalog();
+    showToast('Photo deleted', 'info');
+  }
+}
+
+function triggerPhotoFromDetail() {
+  if (!activeDetailSkuId) return;
+  triggerPhoto(activeDetailSkuId);
+}
 
     window.onload = function() {
       renderLeaderOptions();
