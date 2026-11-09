@@ -1044,7 +1044,7 @@
 
     let skus = JSON.parse(localStorage.getItem('swirla_skus')) || INITIAL_SKUS;
     let buyOrders = JSON.parse(localStorage.getItem('swirla_orders')) || {};
-    let itemPhotos = JSON.parse(localStorage.getItem('swirla_photos')) || {};
+    let itemPhotos = {};
     let filterLowStock = false;
     let activeCameraSkuId = null;
 
@@ -1097,6 +1097,67 @@
     function pushLeadersToCloud() {
       db.ref('swirla/leaders').set(leaders);
     }
+    // Synchronize SKU Photos across all devices
+    const photosRef = db.ref('swirla/photos');
+    let photoRenderTimer = null;
+
+    function schedulePhotoRender(changedSkuId) {
+      if (typeof activeDetailSkuId !== 'undefined' && activeDetailSkuId === changedSkuId) {
+        renderDetailPhotos();
+      }
+      clearTimeout(photoRenderTimer);
+      photoRenderTimer = setTimeout(() => {
+        renderCatalog();
+      }, 60);
+    }
+
+    function handleCloudPhotoUpdate(snapshot) {
+      const skuId = snapshot.key;
+      const val = snapshot.val();
+      itemPhotos[skuId] = Array.isArray(val) ? val : (val ? [val] : []);
+      schedulePhotoRender(skuId);
+    }
+
+    photosRef.on('child_added', handleCloudPhotoUpdate);
+    photosRef.on('child_changed', handleCloudPhotoUpdate);
+    photosRef.on('child_removed', snapshot => {
+      const skuId = snapshot.key;
+      delete itemPhotos[skuId];
+      schedulePhotoRender(skuId);
+    });
+
+    function pushSkuPhotosToCloud(id) {
+      const photos = Array.isArray(itemPhotos[id]) ? itemPhotos[id] : (itemPhotos[id] ? [itemPhotos[id]] : []);
+      if (photos.length === 0) {
+        return db.ref('swirla/photos/' + id).remove();
+      }
+      return db.ref('swirla/photos/' + id).set(photos);
+    }
+
+    // One-time migration for any photos saved on your phone before cloud sync
+    async function migrateLocalPhotos() {
+      const rawLocal = localStorage.getItem('swirla_photos');
+      if (rawLocal && !localStorage.getItem('swirla_photos_migrated')) {
+        try {
+          const localPhotos = JSON.parse(rawLocal) || {};
+          const snap = await photosRef.once('value');
+          const cloudPhotos = snap.val() || {};
+          for (const skuId of Object.keys(localPhotos)) {
+            if (!cloudPhotos[skuId]) {
+              const arr = Array.isArray(localPhotos[skuId]) ? localPhotos[skuId] : [localPhotos[skuId]];
+              if (arr.length > 0) {
+                await db.ref('swirla/photos/' + skuId).set(arr);
+              }
+            }
+          }
+          localStorage.setItem('swirla_photos_migrated', 'true');
+          localStorage.removeItem('swirla_photos');
+        } catch (err) {
+          console.warn('Local photo migration skipped:', err);
+        }
+      }
+    }
+    migrateLocalPhotos();
 
     // Team Management
     function renderLeaderOptions() {
@@ -1282,71 +1343,72 @@ const photoCount = photos.length;
     }
 
  
-// Compressed Multi-Photo Capture (Max 3 per item)
-function triggerPhoto(id) {
-  activeCameraSkuId = id;
-  if (!itemPhotos[id]) itemPhotos[id] = [];
-  if (itemPhotos[id].length >= 3) {
-    if (!confirm('This item already has 3 photos. Taking another will replace the oldest one. Continue?')) return;
-  }
-  document.getElementById('cameraInput').click();
-}
-
-function handlePhotoCapture(event) {
-  const file = event.target.files[0];
-  if (!file || !activeCameraSkuId) return;
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = function() {
-      // Resize to 800px maximum dimension
-      const canvas = document.createElement('canvas');
-      const maxDim = 800;
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height && width > maxDim) {
-        height = Math.round((height * maxDim) / width);
-        width = maxDim;
-      } else if (height > maxDim) {
-        width = Math.round((width * maxDim) / height);
-        height = maxDim;
+// Compressed Multi-Photo Capture with Cloud Sync (Max 3 per item)
+    function triggerPhoto(id) {
+      activeCameraSkuId = id;
+      const photos = Array.isArray(itemPhotos[id]) ? itemPhotos[id] : (itemPhotos[id] ? [itemPhotos[id]] : []);
+      if (photos.length >= 3) {
+        if (!confirm('This item already has 3 photos. Taking another will replace the oldest one. Continue?')) return;
       }
+      document.getElementById('cameraInput').click();
+    }
 
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
+    function handlePhotoCapture(event) {
+      const file = event.target.files[0];
+      const targetSkuId = activeCameraSkuId;
+      if (!file || !targetSkuId) return;
 
-      // Compress to lightweight JPEG (~40-60 KB)
-      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.65);
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          // Resize to 720px maximum dimension for fast cloud sync
+          const canvas = document.createElement('canvas');
+          const maxDim = 720;
+          let width = img.width;
+          let height = img.height;
 
-      if (!Array.isArray(itemPhotos[activeCameraSkuId])) {
-        itemPhotos[activeCameraSkuId] = itemPhotos[activeCameraSkuId] ? [itemPhotos[activeCameraSkuId]] : [];
-      }
+          if (width > height && width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
 
-      if (itemPhotos[activeCameraSkuId].length >= 3) {
-        itemPhotos[activeCameraSkuId].shift(); // Remove oldest to cap at 3
-      }
-      itemPhotos[activeCameraSkuId].push(compressedDataUrl);
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
 
-      try {
-        localStorage.setItem('swirla_photos', JSON.stringify(itemPhotos));
-      } catch (err) {
-        console.warn('Storage quota limit reached');
-      }
+          // Compress to lightweight JPEG (~35-55 KB)
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.60);
 
-      renderCatalog();
-      showToast(`Photo saved (${itemPhotos[activeCameraSkuId].length}/3)`, 'info');
-      if (activeDetailSkuId === activeCameraSkuId) renderDetailPhotos();
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-  event.target.value = ''; // Reset input so identical shots can be snapped again
-}
+          if (!Array.isArray(itemPhotos[targetSkuId])) {
+            itemPhotos[targetSkuId] = itemPhotos[targetSkuId] ? [itemPhotos[targetSkuId]] : [];
+          }
 
+          if (itemPhotos[targetSkuId].length >= 3) {
+            itemPhotos[targetSkuId].shift(); // Remove oldest to cap at 3
+          }
+          itemPhotos[targetSkuId].push(compressedDataUrl);
+
+          renderCatalog();
+          if (activeDetailSkuId === targetSkuId) renderDetailPhotos();
+
+          pushSkuPhotosToCloud(targetSkuId)
+            .then(() => {
+              showToast(`Photo synced (${itemPhotos[targetSkuId].length}/3)`, 'success');
+            })
+            .catch(() => {
+              showToast('Cloud sync failed. Check internet connection.', 'error');
+            });
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+      event.target.value = ''; // Reset input so identical shots can be snapped again
+    }
     // Order Actions
     function toggleOrder(id) {
       const item = skus.find(s => s.id === id);
@@ -1667,18 +1729,22 @@ function renderDetailPhotos() {
 }
 
 function deletePhoto(id, photoIndex) {
-  if (!confirm('Delete this photo? This cannot be undone.')) return;
-  if (Array.isArray(itemPhotos[id])) {
-    itemPhotos[id].splice(photoIndex, 1);
-    if (itemPhotos[id].length === 0) delete itemPhotos[id];
-    try {
-      localStorage.setItem('swirla_photos', JSON.stringify(itemPhotos));
-    } catch (err) {}
-    renderDetailPhotos();
-    renderCatalog();
-    showToast('Photo deleted', 'info');
-  }
-}
+      if (!confirm('Delete this photo? This cannot be undone.')) return;
+      const photos = Array.isArray(itemPhotos[id]) ? itemPhotos[id] : (itemPhotos[id] ? [itemPhotos[id]] : []);
+      if (photos.length > 0) {
+        photos.splice(photoIndex, 1);
+        if (photos.length === 0) {
+          delete itemPhotos[id];
+        } else {
+          itemPhotos[id] = photos;
+        }
+        renderDetailPhotos();
+        renderCatalog();
+        pushSkuPhotosToCloud(id)
+          .then(() => showToast('Photo deleted on all devices', 'info'))
+          .catch(() => showToast('Cloud delete failed. Check connection.', 'error'));
+      }
+    }
 
 function triggerPhotoFromDetail() {
   if (!activeDetailSkuId) return;
