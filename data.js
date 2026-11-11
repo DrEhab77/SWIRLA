@@ -27,9 +27,18 @@ window.SWIRLA_CONFIG = {
     headerBg: '#1B1A26'        // Deep Roast Charcoal (Top Bar & Lock Screen)
   },
 
-  // 2. Cloud Database & Local Cache Isolation
+  // 2. Cloud Database, Auth & Local Cache Isolation
+  firebaseConfig: {
+    apiKey: 'AIzaSyDUMxqkLOoYjt0GQGSAA9-xCRsAv1L0eDk',
+    authDomain: 'swirla-inventory.firebaseapp.com',
+    databaseURL: 'https://swirla-inventory-default-rtdb.firebaseio.com',
+    projectId: 'swirla-inventory',
+    storageBucket: 'swirla-inventory.firebasestorage.app',
+    messagingSenderId: '657987021525',
+    appId: '1:657987021525:web:922303a9035757f05bd05c'
+  },
   firebaseDatabaseURL: 'https://swirla-inventory-default-rtdb.firebaseio.com',
-  firebaseRoot: 'swirla',      // Change per client if sharing a Firebase project
+  firebaseRoot: 'swirla',      // Must match top-level folder in Firebase Rules
   storagePrefix: 'swirla_',    // Unique browser cache key prefix per business
 
   // 3. Telegram Defaults (Leave blank in public GitHub repos; set in-app via Manager -> Telegram Setup)
