@@ -12,20 +12,19 @@
   <meta name="theme-color" content="#1B1A26">
 
   <!-- App Icon -->
-  <link rel="icon" type="image/png" href="icon.png?v=3">
-  <link rel="apple-touch-icon" href="icon.png?v=3">
+  <link rel="icon" type="image/png" href="icon.png?v=4">
+  <link rel="apple-touch-icon" href="icon.png?v=4">
 
   <!-- Brand-Matched Stylesheet -->
-  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="styles.css?v=4">
 
-  <!-- Firebase Realtime Sync SDK -->
+  <!-- Firebase Realtime Sync & Auth SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
   <!-- White-Label Business Config & Baseline 197 SKUs -->
-  <script src="data.js?v=3"></script>
-</head>
-<body>
+  <script src="data.js?v=4"></script>
 
   <!-- Floating Toast Notifications -->
   <div id="toast-container"></div>
@@ -41,10 +40,25 @@
         <p id="authSubtitle">Select your account to sign in</p>
       </div>
 
-      <div id="authProfileStep">
+      <!-- Step 0: One-Time Store Cloud Auth (Protects Firebase Database) -->
+      <div id="authCloudStep" style="display:none; flex-direction:column; gap:10px;">
+        <div class="form-group">
+          <label>Store Email</label>
+          <input type="email" id="cloudLoginEmail" placeholder="dds.ihab484@gmail.com" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label>Store Password</label>
+          <input type="password" id="cloudLoginPassword" placeholder="Enter store password" autocomplete="current-password" onkeydown="if(event.key==='Enter') submitCloudLogin()">
+        </div>
+        <div id="cloudAuthError" style="font-size:12px; font-weight:700; color:var(--danger); min-height:16px;"></div>
+        <button class="btn btn-primary" id="cloudLoginBtn" style="width:100%; padding:11px;" onclick="submitCloudLogin()">🔐 Unlock Store Console</button>
+      </div>
+
+      <div id="authProfileStep" style="display:none;">
         <div class="profile-grid" id="authProfileList">
           <div style="text-align:center; padding:20px; color:var(--text-muted); font-size:13px;">Loading staff accounts...</div>
         </div>
+        <button class="btn btn-outline" id="btnCloudSignOut" style="display:none; width:100%; margin-top:10px; font-size:11.5px; padding:7px;" onclick="logoutCloudStore()">🔒 Lock Device (Sign Out Cloud)</button>
       </div>
 
       <div id="authPinStep" style="display:none; flex-direction:column; gap:12px;">
@@ -554,6 +568,6 @@
   </div>
 
   <!-- Application Logic -->
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
