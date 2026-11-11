@@ -12,11 +12,11 @@
   <meta name="theme-color" content="#1B1A26">
 
   <!-- App Icon -->
-  <link rel="icon" type="image/png" href="icon.png?v=4">
-  <link rel="apple-touch-icon" href="icon.png?v=4">
+  <link rel="icon" type="image/png" href="icon.png?v=6">
+  <link rel="apple-touch-icon" href="icon.png?v=6">
 
   <!-- Brand-Matched Stylesheet -->
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=6">
 
   <!-- Firebase Realtime Sync & Auth SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -24,7 +24,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
   <!-- White-Label Business Config & Baseline 197 SKUs -->
-  <script src="data.js?v=5"></script>
+  <script src="data.js?v=6"></script>
 
   <!-- Floating Toast Notifications -->
   <div id="toast-container"></div>
@@ -34,7 +34,7 @@
     <div class="auth-card">
       <div class="auth-brand">
         <div class="auth-logo-wrap">
-          <img id="authLogoImg" src="icon.png?v=3" alt="Logo" onerror="this.style.display='none'">
+          <img id="authLogoImg" src="icon.png?v=6" alt="Logo" onerror="this.style.display='none'">
         </div>
         <h1 id="authBrandName">Swirla Café</h1>
         <p id="authSubtitle">Select your account to sign in</p>
@@ -100,11 +100,11 @@
   <header class="app-header">
     <div class="brand-lockup">
       <div class="header-logo-wrap">
-        <img id="headerLogoImg" src="icon.png?v=3" alt="Logo" onerror="this.style.display='none'">
+        <img id="headerLogoImg" src="icon.png?v=6" alt="Logo" onerror="this.style.display='none'">
       </div>
       <div>
         <div class="brand-title" id="headerAppName">Swirla Café</div>
-        <div class="brand-subtitle"><span class="sync-dot"></span> <span id="headerAppSubtitle">Live Cloud Sync</span></div>
+        <div class="brand-subtitle"><span class="sync-dot"></span> <span id="headerAppSubtitle">Live Cloud Sync · v6</span></div>
       </div>
     </div>
 
@@ -549,9 +549,12 @@
       </div>
 
       <div style="display:flex; gap:8px;" id="detailActionRow">
-        <button class="btn btn-outline" id="detailEditBtn" style="flex:1;" onclick="editFromDetail()">✏️ Edit SKU</button>
-        <button class="btn btn-primary" id="detailOrderBtn" style="flex:1;" onclick="toggleOrderFromDetail()">+ Order</button>
-      </div>
+     <button class="btn btn-outline" id="detailEditBtn" style="flex:0.8;" onclick="editFromDetail()">✏️ Edit SKU</button>
+     <div class="order-action-group" id="detailOrderGroup" style="flex:1.4;">
+       <input type="number" id="detailOrderQtyInput" class="order-qty-input" value="1" min="1" onfocus="this.select()" onchange="onDetailOrderQtyChange(this.value)">
+       <button class="btn-order-submit" id="detailOrderBtn" onclick="toggleOrderFromDetail()">+ Order</button>
+     </div>
+   </div>
 
       <div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -568,6 +571,6 @@
   </div>
 
   <!-- Application Logic -->
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
