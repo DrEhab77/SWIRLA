@@ -5,823 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Swirla Café — Operations & Buying Console</title>
 
-  <!-- Native Web App Meta Tags -->
+  <!-- Native Mobile Web App Meta Tags -->
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Swirla Ops">
-  <meta name="theme-color" content="#0284c7">
+  <meta name="theme-color" content="#1B1A26">
 
-  <!-- App Icon with Cache Buster -->
-  <link rel="icon" type="image/png" href="icon.png?v=2">
-  <link rel="apple-touch-icon" href="icon.png?v=2">
+  <!-- App Icon -->
+  <link rel="icon" type="image/png" href="icon.png?v=3">
+  <link rel="apple-touch-icon" href="icon.png?v=3">
+
+  <!-- Brand-Matched Stylesheet -->
+  <link rel="stylesheet" href="styles.css?v=3">
 
   <!-- Firebase Realtime Sync SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-  <style>
-    :root {
-      --primary: #0284c7;
-      --primary-dark: #0369a1;
-      --primary-light: #e0f2fe;
-      --text: #0f172a;
-      --text-muted: #64748b;
-      --bg: #f8fafc;
-      --card-bg: #ffffff;
-      --border: #e2e8f0;
-      --danger: #ef4444;
-      --danger-light: #fee2e2;
-      --success: #10b981;
-      --success-light: #d1fae5;
-      --warning: #f59e0b;
-      --warning-light: #fef3c7;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    body {
-      background-color: var(--bg);
-      color: var(--text);
-      padding-bottom: 115px;
-      overflow-x: hidden;
-    }
-
-    /* Floating Toast System */
-    #toast-container {
-      position: fixed;
-      top: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 99999;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      width: 90%;
-      max-width: 420px;
-      pointer-events: none;
-    }
-
-    .toast {
-      pointer-events: auto;
-      padding: 12px 18px;
-      border-radius: 12px;
-      color: #fff;
-      font-size: 14px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
-      animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      transition: all 0.25s ease;
-    }
-
-    .toast.toast-success { background: #059669; border-left: 5px solid #34d399; }
-    .toast.toast-info { background: #0284c7; border-left: 5px solid #38bdf8; }
-    .toast.toast-warning { background: #d97706; border-left: 5px solid #fbbf24; }
-    .toast.toast-error { background: #dc2626; border-left: 5px solid #f87171; }
-    .toast.hide { animation: toastOut 0.25s ease forwards; }
-
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateY(-16px) scale(0.96); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-    @keyframes toastOut {
-      from { opacity: 1; transform: translateY(0) scale(1); }
-      to { opacity: 0; transform: translateY(-16px) scale(0.96); }
-    }
-
-    /* Auth Lock Screen */
-    #authOverlay {
-      position: fixed;
-      inset: 0;
-      background: linear-gradient(160deg, #0284c7 0%, #0f172a 100%);
-      z-index: 20000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    .auth-card {
-      background: #fff;
-      border-radius: 18px;
-      width: 100%;
-      max-width: 390px;
-      padding: 24px 20px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      max-height: 92vh;
-      overflow-y: auto;
-    }
-
-    .auth-brand {
-      text-align: center;
-    }
-
-    .auth-brand h1 {
-      font-size: 24px;
-      font-weight: 800;
-      color: var(--primary);
-      letter-spacing: -0.5px;
-    }
-
-    .auth-brand p {
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-top: 3px;
-    }
-
-    .profile-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .profile-btn {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: #f8fafc;
-      cursor: pointer;
-      text-align: left;
-      transition: all 0.15s ease;
-    }
-
-    .profile-btn:active {
-      transform: scale(0.98);
-      border-color: var(--primary);
-      background: var(--primary-light);
-    }
-
-    .profile-name {
-      font-size: 15px;
-      font-weight: 800;
-      color: var(--text);
-    }
-
-    .role-pill {
-      font-size: 11px;
-      font-weight: 800;
-      padding: 3px 9px;
-      border-radius: 9999px;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-    }
-
-    .role-manager { background: #ede9fe; color: #6d28d9; }
-    .role-leader { background: #e0f2fe; color: #0369a1; }
-    .role-buyer { background: #d1fae5; color: #047857; }
-
-    .pin-dots {
-      display: flex;
-      justify-content: center;
-      gap: 14px;
-      margin: 6px 0;
-    }
-
-    .pin-dot {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      border: 2px solid #cbd5e1;
-      background: #fff;
-      transition: all 0.12s ease;
-    }
-
-    .pin-dot.filled {
-      background: var(--primary);
-      border-color: var(--primary);
-      transform: scale(1.1);
-    }
-
-    .pin-keypad {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-    }
-
-    .pin-key {
-      padding: 14px 0;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: #f8fafc;
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--text);
-      cursor: pointer;
-    }
-
-    .pin-key:active {
-      background: var(--primary-light);
-      border-color: var(--primary);
-    }
-
-    .pin-key.muted {
-      font-size: 13px;
-      color: var(--text-muted);
-      background: #fff;
-    }
-
-    /* Header */
-    header {
-      background: var(--card-bg);
-      border-bottom: 1px solid var(--border);
-      padding: 12px 16px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .brand-title {
-      font-size: 19px;
-      font-weight: 800;
-      color: var(--primary);
-      letter-spacing: -0.5px;
-    }
-
-    .brand-subtitle {
-      font-size: 11px;
-      color: var(--text-muted);
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-
-    .sync-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #10b981;
-      display: inline-block;
-    }
-
-    .header-badges {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .badge-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 6px 10px;
-      border-radius: 9999px;
-      font-size: 11px;
-      font-weight: 700;
-      cursor: pointer;
-      border: 1px solid var(--border);
-      background: #f1f5f9;
-      color: var(--text);
-    }
-
-    .telegram-badge {
-      background: var(--primary-light);
-      color: var(--primary-dark);
-      border-color: rgba(2, 132, 199, 0.2);
-    }
-
-    /* Tabs */
-    .nav-tabs {
-      display: flex;
-      background: var(--card-bg);
-      border-bottom: 1px solid var(--border);
-      padding: 0 16px;
-    }
-
-    .nav-tab {
-      flex: 1;
-      text-align: center;
-      padding: 14px 10px;
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--text-muted);
-      border-bottom: 3px solid transparent;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .nav-tab.active {
-      color: var(--primary);
-      border-bottom-color: var(--primary);
-    }
-
-    .counter-pill {
-      background: var(--primary);
-      color: #fff;
-      padding: 2px 7px;
-      border-radius: 9999px;
-      font-size: 11px;
-    }
-
-    /* Controls Bar */
-    .controls-bar {
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .search-input {
-      width: 100%;
-      padding: 12px 14px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      font-size: 14px;
-      background: var(--card-bg);
-      outline: none;
-    }
-
-    .search-input:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px var(--primary-light);
-    }
-
-    .filters-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .filters-row select {
-      flex: 1;
-      min-width: 140px;
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--card-bg);
-      font-size: 13px;
-      font-weight: 500;
-      outline: none;
-    }
-
-    .actions-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .btn {
-      padding: 9px 13px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 700;
-      border: none;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: background 0.15s ease;
-    }
-
-    .btn-primary { background: var(--primary); color: #fff; }
-    .btn-primary:active { background: var(--primary-dark); }
-    .btn-success { background: #059669; color: #fff; }
-    .btn-outline { background: var(--card-bg); border: 1px solid var(--border); color: var(--text); }
-    .btn-outline.active { background: var(--warning-light); border-color: var(--warning); color: #92400e; }
-    .btn-danger-soft { background: var(--danger-light); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.25); }
-
-    /* Items Grid */
-    .items-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 12px;
-      padding: 0 16px;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .sku-card {
-      background: var(--card-bg);
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      position: relative;
-    }
-
-    .sku-card.below-min {
-      border-left: 4px solid var(--danger);
-    }
-
-    .sku-header {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-    }
-
-    .photo-trigger {
-      width: 52px;
-      height: 52px;
-      background: #f1f5f9;
-      border-radius: 8px;
-      border: 1px dashed #cbd5e1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      color: var(--text-muted);
-      cursor: pointer;
-      position: relative;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-
-    .photo-trigger img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      position: absolute;
-      top: 0;
-      left: 0;
-    }
-
-    .sku-info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .sku-vendor {
-      font-size: 11px;
-      font-weight: 700;
-      color: #be123c;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-
-    .sku-name {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--primary);
-      text-decoration: underline;
-      text-underline-offset: 2px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin: 2px 0;
-      cursor: pointer;
-    }
-
-    .sku-cat {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .sku-stock-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #f8fafc;
-      padding: 6px 10px;
-      border-radius: 8px;
-      font-size: 12px;
-      gap: 8px;
-    }
-
-    .sku-qty-controls {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-shrink: 0;
-    }
-
-    .qty-btn {
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: #fff;
-      font-size: 15px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-
-    .qty-input {
-      width: 44px;
-      height: 28px;
-      text-align: center;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    .sku-card-actions {
-      display: flex;
-      gap: 6px;
-      margin-top: auto;
-    }
-
-    .sku-card-actions .btn {
-      flex: 1;
-      justify-content: center;
-      font-size: 12px;
-      padding: 7px;
-    }
-
-    .btn-ordered {
-      background: #f1f5f9 !important;
-      color: #94a3b8 !important;
-      border: 1px solid #cbd5e1 !important;
-    }
-
-    /* Buy Checklist View */
-    .checklist-container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 16px;
-      display: none;
-    }
-
-    .checklist-header-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 14px;
-    }
-
-    .checklist-header-actions {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .vendor-group {
-      background: var(--card-bg);
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      margin-bottom: 16px;
-      overflow: hidden;
-    }
-
-    .vendor-header {
-      background: #f1f5f9;
-      padding: 10px 14px;
-      font-size: 13px;
-      font-weight: 800;
-      color: #334155;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .checklist-item {
-      padding: 12px 14px;
-      border-bottom: 1px solid #f1f5f9;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .checklist-item:last-child { border-bottom: none; }
-    .checklist-item.done { background: #f8fafc; }
-    .checklist-item.done .cl-title { text-decoration: line-through; opacity: 0.7; }
-
-    .cl-item-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .cl-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex: 1;
-      min-width: 0;
-    }
-
-    .cl-thumb {
-      width: 40px;
-      height: 40px;
-      border-radius: 7px;
-      border: 1px dashed #cbd5e1;
-      background: #f1f5f9;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      position: relative;
-      overflow: hidden;
-      flex-shrink: 0;
-      cursor: pointer;
-    }
-
-    .cl-thumb img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .cl-title {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--primary);
-      text-decoration: underline;
-      text-underline-offset: 2px;
-      cursor: pointer;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .cl-sub {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .cl-controls-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .cl-field-group {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      flex-wrap: wrap;
-    }
-
-    .cl-unit-select {
-      height: 28px;
-      padding: 0 7px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: #f8fafc;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text);
-      outline: none;
-    }
-
-    .cl-status-pill {
-      font-size: 11px;
-      font-weight: 800;
-      padding: 3px 8px;
-      border-radius: 9999px;
-    }
-
-    .status-pending { background: #f1f5f9; color: #475569; }
-    .status-partial { background: var(--warning-light); color: #92400e; }
-    .status-bought { background: var(--success-light); color: #065f46; }
-
-    .cl-note-input {
-      width: 100%;
-      padding: 7px 10px;
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      background: #f8fafc;
-      font-size: 13px;
-      color: var(--text);
-      outline: none;
-    }
-
-    .cl-note-input:focus {
-      background: #fff;
-      border-color: var(--primary);
-    }
-
-    /* Fixed Bottom Ordering Bar */
-    .checkout-bar {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: var(--card-bg);
-      border-top: 1px solid var(--border);
-      padding: 10px 14px;
-      padding-bottom: max(10px, env(safe-area-inset-bottom));
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      z-index: 1000;
-      box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
-      flex-wrap: wrap;
-    }
-
-    .checkout-actions {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    /* Modals */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(2px);
-      z-index: 9999;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-    }
-
-    .modal-card {
-      background: #fff;
-      border-radius: 14px;
-      width: 100%;
-      max-width: 450px;
-      max-height: 90vh;
-      overflow-y: auto;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .modal-title {
-      font-size: 17px;
-      font-weight: 800;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      min-width: 0;
-    }
-
-    .form-group label {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--text-muted);
-    }
-
-    .form-group input, .form-group select {
-      width: 100%;
-      min-width: 0;
-      padding: 9px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      font-size: 14px;
-      outline: none;
-    }
-
-    .modal-actions {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-      align-items: center;
-      margin-top: 8px;
-    }
-
-    .list-row-card {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      padding: 9px 12px;
-      background: #f8fafc;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-  </style>
+  <!-- White-Label Business Config & Baseline 197 SKUs -->
+  <script src="data.js?v=3"></script>
 </head>
 <body>
 
@@ -832,20 +34,21 @@
   <div id="authOverlay">
     <div class="auth-card">
       <div class="auth-brand">
-        <h1>Swirla Café</h1>
+        <div class="auth-logo-wrap">
+          <img id="authLogoImg" src="icon.png?v=3" alt="Logo" onerror="this.style.display='none'">
+        </div>
+        <h1 id="authBrandName">Swirla Café</h1>
         <p id="authSubtitle">Select your account to sign in</p>
       </div>
 
-      <!-- Step 1: Select User Profile -->
       <div id="authProfileStep">
         <div class="profile-grid" id="authProfileList">
           <div style="text-align:center; padding:20px; color:var(--text-muted); font-size:13px;">Loading staff accounts...</div>
         </div>
       </div>
 
-      <!-- Step 2: Enter 4-Digit PIN -->
       <div id="authPinStep" style="display:none; flex-direction:column; gap:12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:10px 12px; border-radius:10px; border:1px solid var(--border);">
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg); padding:10px 12px; border-radius:12px; border:1px solid var(--border);">
           <div>
             <div id="authSelectedName" style="font-size:15px; font-weight:800;"></div>
             <div id="authSelectedRole" style="font-size:11px; color:var(--text-muted); font-weight:700;"></div>
@@ -879,102 +82,244 @@
     </div>
   </div>
 
-  <!-- Header -->
-  <header>
-    <div>
-      <div class="brand-title">Swirla Café</div>
-      <div class="brand-subtitle"><span class="sync-dot"></span> Live Cloud Sync Active</div>
+  <!-- Brand Header -->
+  <header class="app-header">
+    <div class="brand-lockup">
+      <div class="header-logo-wrap">
+        <img id="headerLogoImg" src="icon.png?v=3" alt="Logo" onerror="this.style.display='none'">
+      </div>
+      <div>
+        <div class="brand-title" id="headerAppName">Swirla Café</div>
+        <div class="brand-subtitle"><span class="sync-dot"></span> <span id="headerAppSubtitle">Live Cloud Sync</span></div>
+      </div>
     </div>
+
     <div class="header-badges">
-      <div class="badge-btn" id="userStatusPill" onclick="logoutUser()" title="Tap to switch account">
-        👤 Sign In
-      </div>
-      <div class="badge-btn" id="btnTeamAccess" style="display:none;" onclick="openAccountsModal()">
-        👥 Team & PINs
-      </div>
-      <div class="badge-btn" id="btnBackups" style="display:none;" onclick="openBackupsModal()">
-        💾 Backups
-      </div>
-      <div id="telegramStatusBadge" class="badge-btn telegram-badge" onclick="handleTelegramBadgeClick()">
-        ✈️ Telegram Active
-      </div>
+      <div class="badge-btn" id="userStatusPill" onclick="logoutUser()" title="Tap to switch account">👤 Sign In</div>
+      <div class="badge-btn" id="btnTeamAccess" style="display:none;" onclick="openAccountsModal()">👥 Team</div>
+      <div class="badge-btn" id="btnBackups" style="display:none;" onclick="openBackupsModal()">💾 Backups</div>
+      <div id="telegramStatusBadge" class="badge-btn telegram-badge" onclick="handleTelegramBadgeClick()">✈️ Telegram</div>
     </div>
   </header>
 
-  <!-- Navigation Tabs -->
-  <nav class="nav-tabs">
-    <div class="nav-tab active" id="tabCatalog" onclick="switchView('catalog')">
-      Inventory Catalog <span class="counter-pill" id="catalogCount">197</span>
-    </div>
-    <div class="nav-tab" id="tabChecklist" onclick="switchView('checklist')">
-      Buy Checklist <span class="counter-pill" id="checklistCount">0</span>
-    </div>
-  </nav>
+  <!-- FROZEN STICKY DOCK (Tabs + Search + Collapsible Filters + 1-Line Actions) -->
+  <div class="sticky-dock">
+    <nav class="nav-tabs">
+      <div class="nav-tab active" id="tabCatalog" onclick="switchView('catalog')">
+        Catalog <span class="counter-pill" id="catalogCount">0</span>
+      </div>
+      <div class="nav-tab" id="tabChecklist" onclick="switchView('checklist')">
+        Checklist <span class="counter-pill" id="checklistCount">0</span>
+      </div>
+      <div class="nav-tab" id="tabHistory" style="display:none;" onclick="switchView('history')">
+        History <span class="counter-pill" id="historyCount">0</span>
+      </div>
+      <div class="nav-tab" id="tabReports" style="display:none;" onclick="switchView('reports')">
+        Reports
+      </div>
+    </nav>
 
-  <!-- VIEW 1: Catalog -->
-  <main id="catalogView">
-    <section class="controls-bar">
-      <input type="text" id="searchBox" class="search-input" placeholder="🔍 Search catalog items..." oninput="renderCatalog()">
-
-      <div class="filters-row">
-        <select id="vendorFilter" onchange="renderCatalog()">
-          <option value="">(All Vendors)</option>
-        </select>
-        <select id="categoryFilter" onchange="renderCatalog()">
-          <option value="">(All Categories)</option>
-        </select>
+    <!-- Catalog Frozen Search & Filter Block -->
+    <section class="controls-bar" id="catalogStickyControls">
+      <div class="search-filter-top">
+        <div class="search-wrap">
+          <input type="text" id="searchBox" class="search-input" placeholder="🔍 Search items or vendors..." oninput="onSearchInput()">
+          <button class="search-clear-btn" id="clearSearchBtn" onclick="clearCatalogSearch()" title="Clear search">✕</button>
+        </div>
+        <button class="filter-toggle-btn" id="toggleFiltersBtn" onclick="toggleFiltersDrawer()">
+          <span>🎛️ Filters</span>
+          <span class="filter-dot" id="filtersActiveDot"></span>
+          <span id="filtersChevron">▾</span>
+        </button>
       </div>
 
-      <div class="actions-row">
-        <button class="btn btn-primary" id="btnAddSku" onclick="openSkuModal()">+ Add New SKU</button>
-        <button class="btn btn-outline" id="filterLowStockBtn" onclick="toggleLowStockFilter()">⚠️ Low Stock Only</button>
-        <button class="btn btn-outline" id="filterNeedsParBtn" onclick="toggleNeedsParFilter()">⚙️ Needs Min/Max (0/0)</button>
+      <!-- Collapsible Vendor / Category / Zero-Stock Drawer -->
+      <div class="filters-drawer" id="filtersDrawer">
+        <div class="filters-row">
+          <select id="vendorFilter" onchange="onFilterChange()">
+            <option value="">All Vendors</option>
+          </select>
+          <select id="categoryFilter" onchange="onFilterChange()">
+            <option value="">All Categories</option>
+          </select>
+        </div>
+        <div class="drawer-chips-row">
+          <button class="btn btn-outline" id="filterZeroStockBtn" style="padding:5px 10px; font-size:11.5px;" onclick="toggleZeroStockFilter()">🚫 Out of Stock (0)</button>
+          <button class="btn btn-outline" id="btnManageListsShortcut" style="padding:5px 10px; font-size:11.5px; display:none;" onclick="openTaxonomyModal('vendor')">✏️ Manage Vendors/Cats</button>
+          <button class="btn btn-outline" style="padding:5px 10px; font-size:11.5px; margin-left:auto;" onclick="resetAllCatalogFilters()">Reset All</button>
+        </div>
+      </div>
+
+      <!-- Single-Line Action Bar: + Add New | Low Stock | Needs Min/Max -->
+      <div class="actions-row-single" id="catalogActionsRow">
+        <div class="add-new-wrap" id="btnAddNewWrap">
+          <button class="btn btn-primary" id="btnAddNew" onclick="toggleAddNewMenu(event)">+ Add New ▾</button>
+          <div class="add-new-menu" id="addNewMenu">
+            <button class="add-menu-item" onclick="handleAddMenuChoice('sku')"><span>📦 New SKU</span><span style="font-size:11px; color:var(--text-muted);">Item</span></button>
+            <button class="add-menu-item" onclick="handleAddMenuChoice('vendor')"><span>🏪 New Vendor</span><span style="font-size:11px; color:var(--text-muted);">Store</span></button>
+            <button class="add-menu-item" onclick="handleAddMenuChoice('category')"><span>🏷️ New Category</span><span style="font-size:11px; color:var(--text-muted);">Group</span></button>
+            <button class="add-menu-item" id="addMenuMemberBtn" style="display:none;" onclick="handleAddMenuChoice('member')"><span>👤 New Member</span><span style="font-size:11px; color:var(--text-muted);">PIN</span></button>
+            <div class="add-menu-divider"></div>
+            <button class="add-menu-item" onclick="handleAddMenuChoice('manage_lists')"><span>⚙️ Manage Vendors / Cats</span></button>
+          </div>
+        </div>
+        <button class="btn btn-outline" id="filterLowStockBtn" onclick="toggleLowStockFilter()">⚠️ Low (0)</button>
+        <button class="btn btn-outline" id="filterNeedsParBtn" onclick="toggleNeedsParFilter()">⚙️ 0/0 (0)</button>
       </div>
     </section>
+  </div>
 
+  <!-- VIEW 1: Inventory Catalog -->
+  <main id="catalogView">
+    <div class="catalog-meta-bar" id="catalogMetaBar"></div>
     <div class="items-grid" id="itemsGrid"></div>
   </main>
 
   <!-- VIEW 2: Buy Checklist -->
-  <main id="checklistView" class="checklist-container">
-    <div class="checklist-header-bar">
-      <h3 style="font-size:16px; font-weight:800;">Buying & Prep List</h3>
-      <div class="checklist-header-actions">
-        <button class="btn btn-outline" id="btnClearFulfilled" style="font-size:11px; padding:6px 10px;" onclick="clearFulfilled()">Clear Fulfilled</button>
-        <button class="btn btn-danger-soft" id="btnClearAll" style="font-size:11px; padding:6px 10px; display:none;" onclick="clearAllChecklist()">Clear All</button>
+  <main id="checklistView" class="section-container">
+    <div class="section-header-bar">
+      <h3 style="font-size:16px; font-weight:800;">Buying &amp; Prep List</h3>
+      <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+        <button class="btn btn-outline" id="btnClearFulfilled" style="font-size:11.5px; padding:6px 10px;" onclick="clearFulfilled()">Clear Fulfilled</button>
+        <button class="btn btn-danger-soft" id="btnClearAll" style="font-size:11.5px; padding:6px 10px; display:none;" onclick="clearAllChecklist()">Clear All</button>
       </div>
     </div>
 
     <div id="checklistItemsList"></div>
 
-    <div class="checkout-bar">
-      <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
-        <span style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Signed In As</span>
-        <span id="checkoutUserDisplay" style="font-size:13px; font-weight:800; color:var(--text);">—</span>
+    <div class="checkout-bar" id="checkoutBar">
+      <div style="display:flex; flex-direction:column; gap:1px; min-width:0;">
+        <span style="font-size:9.5px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">Signed In As</span>
+        <span id="checkoutUserDisplay" style="font-size:12.5px; font-weight:800; color:var(--text);">—</span>
       </div>
       <div class="checkout-actions" id="checkoutActions"></div>
     </div>
   </main>
 
-  <!-- Hidden Camera Input for Photos -->
-  <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoCapture(event)">
-  <!-- Hidden Backup File Upload Input -->
+  <!-- VIEW 3: Order & Audit History (Shift Leaders & Managers) -->
+  <main id="historyView" class="section-container">
+    <div class="section-header-bar">
+      <div>
+        <h3 style="font-size:16px; font-weight:800;">Audit &amp; Order History</h3>
+        <div style="font-size:11.5px; color:var(--text-muted);">Track who ordered, changed stock, bought, or received items.</div>
+      </div>
+      <button class="btn btn-outline" id="btnExportHistoryCsv" style="font-size:11.5px; padding:6px 10px;" onclick="exportHistoryCsv()">⬇️ Export CSV</button>
+    </div>
+
+    <div class="filter-toolbar">
+      <input type="text" id="historySearchBox" placeholder="🔍 Search item, vendor, or note..." oninput="renderHistory()">
+      <select id="historyTypeFilter" onchange="renderHistory()">
+        <option value="">All Actions</option>
+        <option value="receive">Stock Received</option>
+        <option value="order_sent">Orders Sent</option>
+        <option value="buyer_report">Buyer Reports</option>
+        <option value="bought_edit">Bought Edits</option>
+        <option value="stock_edit">Direct Stock Edits</option>
+        <option value="checklist">Checklist Add/Remove</option>
+        <option value="sku">SKU / List Edits</option>
+      </select>
+      <select id="historyUserFilter" onchange="renderHistory()">
+        <option value="">All Staff</option>
+      </select>
+      <select id="historyRangeFilter" onchange="renderHistory()">
+        <option value="7">Last 7 Days</option>
+        <option value="30" selected>Last 30 Days</option>
+        <option value="90">Last 90 Days</option>
+        <option value="all">All Time</option>
+      </select>
+    </div>
+
+    <div class="history-list" id="historyList"></div>
+  </main>
+
+  <!-- VIEW 4: Management Reports (Shift Leaders & Managers) -->
+  <main id="reportsView" class="section-container">
+    <div class="section-header-bar">
+      <div>
+        <h3 style="font-size:16px; font-weight:800;">Management &amp; Buying Insights</h3>
+        <div style="font-size:11.5px; color:var(--text-muted);">Most-bought items, slow movers, vendor reliability &amp; par recommendations.</div>
+      </div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="btn btn-outline" style="font-size:11.5px; padding:6px 10px;" onclick="exportReportCsv()">⬇️ CSV</button>
+        <button class="btn btn-primary" id="btnSendReportTelegram" style="font-size:11.5px; padding:6px 10px;" onclick="sendReportSummaryTelegram()">✈️ Send Summary</button>
+      </div>
+    </div>
+
+    <div class="filter-toolbar" style="grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));">
+      <select id="reportRangeFilter" onchange="renderReports()">
+        <option value="7">Last 7 Days</option>
+        <option value="30" selected>Last 30 Days</option>
+        <option value="90">Last 90 Days</option>
+        <option value="all">All Time</option>
+      </select>
+      <select id="reportVendorFilter" onchange="renderReports()">
+        <option value="">All Vendors</option>
+      </select>
+    </div>
+
+    <div id="reportsContent"></div>
+  </main>
+
+  <!-- Hidden Inputs: Live Camera, Photo Gallery, and JSON Backup -->
+  <input type="file" id="cameraInputLive" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoCapture(event)">
+  <input type="file" id="cameraInputGallery" accept="image/*" style="display:none;" onchange="handlePhotoCapture(event)">
   <input type="file" id="backupFileInput" accept=".json,application/json" style="display:none;" onchange="handleBackupFileUpload(event)">
+
+  <!-- Photo Source Picker Modal (Camera vs Photo Library) -->
+  <div class="modal-overlay" id="photoSourceModal" onclick="if(event.target === this) closeModal('photoSourceModal')">
+    <div class="modal-card" style="max-width:360px;">
+      <div class="modal-title">📷 Add Reference Photo</div>
+      <p style="font-size:12.5px; color:var(--text-muted);">Choose whether to snap a live shelf photo or pick a saved image from your device.</p>
+      <button class="btn btn-primary" style="width:100%; padding:12px;" onclick="launchPhotoInput('camera')">📷 Take Live Photo (Camera)</button>
+      <button class="btn btn-outline" style="width:100%; padding:12px;" onclick="launchPhotoInput('gallery')">🖼️ Choose from Photo Library</button>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('photoSourceModal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vendor & Category Manager Modal -->
+  <div class="modal-overlay" id="taxonomyModal" onclick="if(event.target === this) closeModal('taxonomyModal')">
+    <div class="modal-card">
+      <div class="modal-title" id="taxonomyModalTitle">🏪 Manage Vendors &amp; Categories</div>
+
+      <div style="display:flex; gap:6px;">
+        <button class="btn btn-primary" id="taxTabVendor" style="flex:1; padding:7px;" onclick="switchTaxonomyTab('vendor')">Vendors</button>
+        <button class="btn btn-outline" id="taxTabCategory" style="flex:1; padding:7px;" onclick="switchTaxonomyTab('category')">Categories</button>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <input type="hidden" id="taxonomyOldName">
+        <input type="text" id="taxonomyNameInput" class="search-input" style="padding:9px 11px;" placeholder="Enter new name...">
+        <button class="btn btn-primary" id="taxonomySaveBtn" style="white-space:nowrap;" onclick="saveTaxonomyItem()">+ Add</button>
+      </div>
+      <div id="taxonomyEditHint" style="display:none; font-size:11.5px; color:var(--primary-dark); font-weight:700; justify-content:space-between; align-items:center;">
+        <span id="taxonomyEditLabel"></span>
+        <button class="btn btn-outline" style="padding:3px 8px; font-size:11px;" onclick="resetTaxonomyForm()">Cancel Rename</button>
+      </div>
+
+      <div id="taxonomyList" style="display:flex; flex-direction:column; gap:6px; max-height:260px; overflow-y:auto;"></div>
+
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="closeModal('taxonomyModal')">Done</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Manage Team & PIN Access Modal (Manager Only) -->
   <div class="modal-overlay" id="accountsModal" onclick="if(event.target === this) closeModal('accountsModal')">
     <div class="modal-card">
-      <div class="modal-title">👥 Manage Team & PIN Access</div>
-      <p style="font-size:12px; color:var(--text-muted); line-height:1.4;">
+      <div class="modal-title">👥 Manage Team &amp; PIN Access</div>
+      <p style="font-size:12px; color:var(--text-muted);">
         Only Management can grant access, assign roles, or reset 4-digit PINs. Changes apply live to every device.
       </p>
 
-      <div style="background:#f8fafc; padding:12px; border-radius:10px; border:1px solid var(--border); display:flex; flex-direction:column; gap:8px;">
+      <div style="background:var(--bg); padding:12px; border-radius:12px; border:1px solid var(--border); display:flex; flex-direction:column; gap:8px;">
         <input type="hidden" id="accEditId">
         <div style="font-size:12px; font-weight:800;" id="accFormTitle">Add New Team Member</div>
         <div class="form-group">
           <label>Name</label>
-          <input type="text" id="accFormName" placeholder="e.g., Ehab, Ali, Sarah">
+          <input type="text" id="accFormName" placeholder="e.g., Ehab, Sabrina, Sara">
         </div>
         <div style="display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:8px;">
           <div class="form-group">
@@ -996,7 +341,7 @@
         </div>
       </div>
 
-      <div id="accountsList" style="display:flex; flex-direction:column; gap:6px; max-height:240px; overflow-y:auto;"></div>
+      <div id="accountsList" style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto;"></div>
 
       <div class="modal-actions">
         <button class="btn btn-primary" onclick="closeModal('accountsModal')">Done</button>
@@ -1007,8 +352,8 @@
   <!-- Backups & Restore Modal (Manager Only) -->
   <div class="modal-overlay" id="backupsModal" onclick="if(event.target === this) closeModal('backupsModal')">
     <div class="modal-card">
-      <div class="modal-title">💾 Backups & App Restore</div>
-      <p style="font-size:12px; color:var(--text-muted); line-height:1.4;">
+      <div class="modal-title">💾 Backups &amp; App Restore</div>
+      <p style="font-size:12px; color:var(--text-muted);">
         Save a cloud restore point before staff shifts, or export/restore a full JSON backup file.
       </p>
 
@@ -1017,16 +362,16 @@
         <button class="btn btn-primary" style="white-space:nowrap;" onclick="saveCloudSnapshot()">+ Snapshot</button>
       </div>
 
-      <div style="font-size:12px; font-weight:800; color:var(--text-muted); margin-top:4px;">Saved Cloud Restore Points</div>
+      <div style="font-size:11.5px; font-weight:800; color:var(--text-muted); margin-top:4px; text-transform:uppercase;">Saved Cloud Restore Points</div>
       <div id="cloudBackupsList" style="display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto;"></div>
 
       <div style="border-top:1px solid var(--border); padding-top:10px; display:flex; flex-direction:column; gap:8px;">
         <div style="display:flex; gap:8px;">
-          <button class="btn btn-outline" style="flex:1; justify-content:center; font-size:12px;" onclick="downloadFullBackup()">⬇️ Download JSON File</button>
-          <button class="btn btn-outline" style="flex:1; justify-content:center; font-size:12px;" onclick="document.getElementById('backupFileInput').click()">⬆️ Restore JSON File</button>
+          <button class="btn btn-outline" style="flex:1; font-size:12px;" onclick="downloadFullBackup()">⬇️ Download JSON</button>
+          <button class="btn btn-outline" style="flex:1; font-size:12px;" onclick="document.getElementById('backupFileInput').click()">⬆️ Restore JSON</button>
         </div>
-        <button class="btn btn-danger-soft" style="width:100%; justify-content:center; font-size:12px;" onclick="resetToOriginalCatalog()">
-          🔄 Reset Catalog to Original 197 Items
+        <button class="btn btn-danger-soft" style="width:100%; font-size:12px;" onclick="resetToOriginalCatalog()">
+          🔄 Reset Catalog to Baseline Items
         </button>
       </div>
 
@@ -1036,24 +381,24 @@
     </div>
   </div>
 
-  <!-- Receive Bought to Stock Confirmation Modal -->
+  <!-- Receive Bought to Stock Confirmation Modal (Leaders & Managers Only) -->
   <div class="modal-overlay" id="receiveModal" onclick="if(event.target === this) closeModal('receiveModal')">
     <div class="modal-card">
       <div class="modal-title" id="receiveModalTitle">✅ Receive Bought Items into Stock</div>
-      <p style="font-size:12px; color:var(--text-muted); line-height:1.4;">
-        Review quantities to add into catalog inventory. Partial buys automatically keep the remaining quantity on the Buy Checklist.
+      <p style="font-size:12px; color:var(--text-muted);">
+        Review quantities to add into catalog inventory. Partial buys automatically keep the remaining quantity on the Buy Checklist and log to History.
       </p>
 
       <div id="receivePreviewList" style="display:flex; flex-direction:column; gap:6px; max-height:240px; overflow-y:auto;"></div>
 
-      <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; background:#f0f9ff; padding:10px 12px; border-radius:8px; border:1px solid rgba(2,132,199,0.2); cursor:pointer;">
+      <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; background:var(--primary-light); padding:10px 12px; border-radius:10px; border:1px solid rgba(217, 107, 39, 0.25); cursor:pointer;">
         <input type="checkbox" id="receiveAlsoTelegram" checked style="transform:scale(1.15);">
-        <span>Also send Buyer Receipt to Telegram</span>
+        <span>Also send Received Stock Receipt to Telegram</span>
       </label>
 
       <div class="modal-actions">
         <button class="btn btn-outline" onclick="closeModal('receiveModal')">Cancel</button>
-        <button class="btn btn-success" onclick="confirmReceiveToStock()">✅ Confirm & Update Stock</button>
+        <button class="btn btn-success" onclick="confirmReceiveToStock()">✅ Confirm &amp; Update Stock</button>
       </div>
     </div>
   </div>
@@ -1062,16 +407,16 @@
   <div class="modal-overlay" id="telegramModal" onclick="if(event.target === this) closeModal('telegramModal')">
     <div class="modal-card">
       <div class="modal-title">✈️ Telegram Notification Setup</div>
-      <p style="font-size:12px; color:var(--text-muted); line-height:1.4;">
-        Alerts are sent to your Swirla team group chat whenever an order or buyer report is submitted.
+      <p style="font-size:12px; color:var(--text-muted);">
+        Settings are stored privately in your Firebase database (not in public GitHub files) so every staff device shares the same alert channel.
       </p>
       <div class="form-group">
         <label>Bot Token</label>
-        <input type="text" id="cfgBotToken">
+        <input type="text" id="cfgBotToken" placeholder="Paste Telegram Bot Token">
       </div>
       <div class="form-group">
         <label>Chat ID / Group ID</label>
-        <input type="text" id="cfgChatId">
+        <input type="text" id="cfgChatId" placeholder="e.g., -5153397824">
       </div>
       <div class="modal-actions">
         <button class="btn btn-outline" onclick="closeModal('telegramModal')">Cancel</button>
@@ -1083,46 +428,70 @@
   <!-- SKU Add/Edit Modal -->
   <div class="modal-overlay" id="skuModal" onclick="if(event.target === this) closeModal('skuModal')">
     <div class="modal-card">
-      <div class="modal-title" id="skuModalTitle">Edit SKU Parameters</div>
+      <div class="modal-title" id="skuModalTitle">Edit SKU</div>
       <input type="hidden" id="editSkuId">
+
       <div class="form-group">
         <label>Item Name</label>
-        <input type="text" id="editSkuName">
+        <input type="text" id="editSkuName" placeholder="e.g., Oat Milk Barista" oninput="checkDuplicateSkuName()">
+        <div class="dup-warning" id="duplicateSkuWarning"></div>
       </div>
+
       <div class="form-group">
         <label>Vendor</label>
-        <input type="text" id="editSkuVendor">
+        <div class="inline-select-row">
+          <select id="editSkuVendor"></select>
+          <button type="button" class="inline-plus-btn" onclick="quickAddTaxonomyFromSku('vendor')" title="Add new vendor">+</button>
+        </div>
       </div>
+
       <div class="form-group">
         <label>Category</label>
-        <input type="text" id="editSkuCategory">
+        <div class="inline-select-row">
+          <select id="editSkuCategory"></select>
+          <button type="button" class="inline-plus-btn" onclick="quickAddTaxonomyFromSku('category')" title="Add new category">+</button>
+        </div>
       </div>
-      <div class="form-group">
-        <label>Unit / Pack Type (Optional)</label>
-        <input type="text" id="editSkuUnit" list="unitSuggestions" placeholder="e.g., Units, Cases, Boxes, Bottles">
-        <datalist id="unitSuggestions">
-          <option value="Units"></option>
-          <option value="Cases"></option>
-          <option value="Boxes"></option>
-          <option value="Bags"></option>
-          <option value="Bottles"></option>
-          <option value="Gallons"></option>
-          <option value="Packs"></option>
-          <option value="Tubs"></option>
-          <option value="Rolls"></option>
-          <option value="Each"></option>
-        </datalist>
+
+      <div style="display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:10px;">
+        <div class="form-group">
+          <label>Current Stock</label>
+          <input type="number" id="editSkuStock" min="0">
+        </div>
+        <div class="form-group">
+          <label>Unit / Pack Type</label>
+          <input type="text" id="editSkuUnit" list="unitSuggestions" placeholder="Units, Cases...">
+          <datalist id="unitSuggestions">
+            <option value="Units"></option>
+            <option value="Cases"></option>
+            <option value="Boxes"></option>
+            <option value="Bags"></option>
+            <option value="Bottles"></option>
+            <option value="Gallons"></option>
+            <option value="Packs"></option>
+            <option value="Tubs"></option>
+            <option value="Rolls"></option>
+            <option value="Each"></option>
+          </datalist>
+        </div>
       </div>
-      <div style="display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:10px; width:100%;">
+
+      <div style="display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:10px;">
         <div class="form-group">
           <label>Min Par</label>
-          <input type="number" id="editSkuMin">
+          <input type="number" id="editSkuMin" min="0">
         </div>
         <div class="form-group">
           <label>Max Par</label>
-          <input type="number" id="editSkuMax">
+          <input type="number" id="editSkuMax" min="0">
         </div>
       </div>
+
+      <div class="form-group">
+        <label>SKU Note (Brand, Size, Shelf Location — Optional)</label>
+        <textarea id="editSkuNote" rows="2" placeholder="e.g., Must be Barista Edition, bottom walk-in shelf"></textarea>
+      </div>
+
       <div class="modal-actions">
         <button class="btn btn-danger-soft" id="deleteSkuBtn" style="margin-right:auto; display:none;" onclick="deleteCurrentSku()">🗑️ Delete SKU</button>
         <button class="btn btn-outline" onclick="closeModal('skuModal')">Cancel</button>
@@ -1134,18 +503,21 @@
   <!-- Item Detail & Photo Gallery Modal -->
   <div class="modal-overlay" id="itemDetailModal" onclick="if(event.target === this) closeModal('itemDetailModal')">
     <div class="modal-card">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <div style="min-width:0; padding-right:8px;">
-          <div id="detailSkuVendor" style="font-size:11px; font-weight:800; color:#be123c; text-transform:uppercase; letter-spacing:0.5px;"></div>
+          <div id="detailSkuVendor" style="font-size:11px; font-weight:800; color:var(--secondary); text-transform:uppercase; letter-spacing:0.5px;"></div>
           <div id="detailSkuName" style="font-size:18px; font-weight:800; color:var(--text); margin:2px 0; word-break:break-word;"></div>
           <div id="detailSkuCat" style="font-size:12px; color:var(--text-muted);"></div>
           <div id="detailSkuUpdated" style="font-size:11px; color:var(--text-muted); margin-top:2px;"></div>
         </div>
-        <button class="btn btn-outline" style="padding:4px 9px; font-size:14px; flex-shrink:0;" onclick="closeModal('itemDetailModal')">✕</button>
+        <button class="btn btn-outline" style="padding:4px 10px; font-size:14px; flex-shrink:0;" onclick="closeModal('itemDetailModal')">✕</button>
       </div>
 
-      <!-- Par & Stock Bar -->
-      <div style="display:flex; justify-content:space-around; background:#f8fafc; padding:10px; border-radius:10px; border:1px solid var(--border); text-align:center;">
+      <div id="detailSkuNoteBox" class="sku-note-pill" style="display:none;">
+        <span>📝</span><span id="detailSkuNoteText"></span>
+      </div>
+
+      <div style="display:flex; justify-content:space-around; background:var(--bg); padding:10px; border-radius:12px; border:1px solid var(--border); text-align:center;">
         <div>
           <div id="detailSkuStock" style="font-size:17px; font-weight:800; color:var(--primary);">0</div>
           <div style="font-size:11px; font-weight:700; color:var(--text-muted);">Current Stock</div>
@@ -1162,1985 +534,26 @@
         </div>
       </div>
 
-      <!-- Quick Actions -->
       <div style="display:flex; gap:8px;" id="detailActionRow">
-        <button class="btn btn-outline" id="detailEditBtn" style="flex:1; justify-content:center;" onclick="editFromDetail()">✏️ Edit SKU</button>
-        <button class="btn btn-primary" id="detailOrderBtn" style="flex:1; justify-content:center;" onclick="toggleOrderFromDetail()">+ Order</button>
+        <button class="btn btn-outline" id="detailEditBtn" style="flex:1;" onclick="editFromDetail()">✏️ Edit SKU</button>
+        <button class="btn btn-primary" id="detailOrderBtn" style="flex:1;" onclick="toggleOrderFromDetail()">+ Order</button>
       </div>
 
-      <!-- Photos Gallery -->
       <div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
           <span style="font-size:13px; font-weight:800;">Reference Photos (<span id="detailPhotoCount">0</span>/3)</span>
           <button class="btn btn-primary" id="detailAddBtn" style="padding:5px 10px; font-size:12px;" onclick="triggerPhotoFromDetail()">📷 + Add Photo</button>
         </div>
-        <div id="detailGalleryList" style="display:flex; flex-direction:column; gap:12px;"></div>
+        <div id="detailGalleryList" style="display:flex; flex-direction:column; gap:10px;"></div>
       </div>
 
-      <div class="modal-actions" style="margin-top:4px;">
+      <div class="modal-actions">
         <button class="btn btn-outline" onclick="closeModal('itemDetailModal')">Close</button>
       </div>
     </div>
   </div>
 
-  <script>
-    /* 1. Firebase Realtime Sync Setup */
-    const firebaseConfig = {
-      databaseURL: "https://swirla-inventory-default-rtdb.firebaseio.com"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    /* 2. Default Swirla Telegram Credentials */
-    const DEFAULT_BOT_TOKEN = '9066972020:AAFRYa6-yEqallP4oPmCZuAne0R9Crw7joQ';
-    const DEFAULT_CHAT_ID = '-5153397824';
-
-    let botToken = localStorage.getItem('swirla_bot_token') || DEFAULT_BOT_TOKEN;
-    let chatId = localStorage.getItem('swirla_chat_id') || DEFAULT_CHAT_ID;
-
-    /* 3. Role Accounts & Access Control */
-    const DEFAULT_ACCOUNTS = [
-      { id: 'acc_manager', name: 'Manager', role: 'manager', pin: '1234' },
-      { id: 'acc_sabrina', name: 'Sabrina', role: 'leader', pin: '1111' },
-      { id: 'acc_prissila', name: 'Prissila', role: 'leader', pin: '2222' },
-      { id: 'acc_buyer', name: 'Buyer', role: 'buyer', pin: '3333' }
-    ];
-    const STANDARD_UNITS = ['Units', 'Cases', 'Boxes', 'Bags', 'Bottles', 'Gallons', 'Packs', 'Tubs', 'Rolls', 'Each'];
-
-    let accounts = [];
-    let accountsLoaded = false;
-    let currentUser = null;
-    let pendingLoginAccount = null;
-    let pinBuffer = '';
-
-    function isManager() { return !!(currentUser && currentUser.role === 'manager'); }
-    function isLeaderOrManager() { return !!(currentUser && (currentUser.role === 'manager' || currentUser.role === 'leader')); }
-    function isBuyerOrManager() { return !!(currentUser && (currentUser.role === 'manager' || currentUser.role === 'buyer')); }
-
-    function roleLabel(role) {
-      if (role === 'manager') return 'Manager';
-      if (role === 'buyer') return 'Buyer';
-      return 'Shift Leader';
-    }
-
-    function escapeHtml(str) {
-      return String(str ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
-
-    function escapeTgMarkdown(str) {
-      return String(str ?? '').replace(/([_*`\[])/g, '\\$1');
-    }
-
-    function formatShortTime(ts) {
-      if (!ts) return '';
-      return new Date(ts).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-    }
-
-    // Toast Notification Engine
-    function showToast(message, type = 'success', duration = 3000) {
-      const container = document.getElementById('toast-container');
-      const toast = document.createElement('div');
-      toast.className = `toast toast-${type}`;
-
-      let icon = '✅';
-      if (type === 'info') icon = 'ℹ️';
-      if (type === 'warning') icon = '⚠️';
-      if (type === 'error') icon = '❌';
-
-      toast.innerHTML = `<span>${icon}</span><span>${escapeHtml(message)}</span>`;
-      container.appendChild(toast);
-
-      setTimeout(() => {
-        toast.classList.add('hide');
-        setTimeout(() => toast.remove(), 250);
-      }, duration);
-    }
-
-    /* 4. Master SKU Dataset (197 Total Items) */
-    const INITIAL_SKUS = [
-      { id: '1', vendor: 'Alaqsa', name: 'Karak Tea', cat: 'Beverage Bases & Spices', stock: 5, min: 0, max: 0 },
-      { id: '2', vendor: 'Alaqsa', name: 'Sahlab Powder', cat: 'Beverage Bases & Spices', stock: 2, min: 0, max: 0 },
-      { id: '3', vendor: 'Alaqsa', name: 'Zaatar', cat: 'Beverage Bases & Spices', stock: 1, min: 0, max: 0 },
-      { id: '4', vendor: 'Alaqsa', name: 'Labneh', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
-      { id: '5', vendor: 'Amazon', name: 'Lables Stickers kitchen', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '6', vendor: 'Amazon', name: 'Lables Stickers latte', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '7', vendor: 'Amazon', name: 'Paper straws', cat: 'Packaging & Disposables', stock: 1, min: 10, max: 40 },
-      { id: '8', vendor: 'Amazon', name: 'Receipt Paper', cat: 'Packaging & Disposables', stock: 4, min: 5, max: 20 },
-      { id: '9', vendor: 'Amazon', name: 'Smootie straw', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '10', vendor: 'Amazon', name: 'Waffle Wood Sticks', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '11', vendor: 'Amazon', name: 'Dolce De Leche Cream', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '12', vendor: 'Amazon', name: 'Coconut Flakes', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '13', vendor: 'Amazon', name: 'Gummy Bears', cat: 'Toppings & Add-ins', stock: 1, min: 0, max: 0 },
-      { id: '14', vendor: 'Amazon', name: 'Marshmallows', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '15', vendor: 'Amazon Fresh', name: 'Zesty Tomato Sauce', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
-      { id: '16', vendor: 'Costco', name: 'Apple Juice', cat: 'Beverage Bases & Spices', stock: 0, min: 5, max: 20 },
-      { id: '17', vendor: 'Costco', name: 'Pineapple Juice', cat: 'Beverage Bases & Spices', stock: 0, min: 0, max: 0 },
-      { id: '18', vendor: 'Costco', name: 'Coconut Milk', cat: 'Dairy & Milks', stock: 12, min: 4, max: 12 },
-      { id: '19', vendor: 'Costco', name: 'Whipped Cream', cat: 'Dairy & Milks', stock: 8, min: 2, max: 8 },
-      { id: '20', vendor: 'Costco', name: 'Basil Pesto', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '21', vendor: 'Costco', name: 'Sourdough Bread', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '22', vendor: 'Costco', name: 'Whey Protein Vanilla', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
-      { id: '23', vendor: 'Costco', name: 'Chia Seeds', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '24', vendor: 'Costco', name: 'Chocolate pudding', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '25', vendor: 'Costco', name: 'Dates', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '26', vendor: 'Costco', name: 'Granola', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '27', vendor: 'Costco', name: 'Strawberry pudding', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '28', vendor: 'Costco', name: 'Vanilla pudding', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '29', vendor: 'Gelotti', name: 'Gelato: Cannoli', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
-      { id: '30', vendor: 'Gelotti', name: 'Gelato: Chocolate', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
-      { id: '31', vendor: 'Gelotti', name: 'Gelato: Cookies & Cream', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
-      { id: '32', vendor: 'Gelotti', name: 'Gelato: Espresso', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
-      { id: '33', vendor: 'Gelotti', name: 'Gelato: Hazelnut', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
-      { id: '34', vendor: 'Gelotti', name: 'Gelato: Mango', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
-      { id: '35', vendor: 'Gelotti', name: 'Gelato: Mint Chip', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
-      { id: '36', vendor: 'Gelotti', name: 'Gelato: Nutella', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
-      { id: '37', vendor: 'Gelotti', name: 'Gelato: Pistachio', cat: 'Frozen Goods', stock: 3, min: 2, max: 3 },
-      { id: '38', vendor: 'Gelotti', name: 'Gelato: Stracciatella', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
-      { id: '39', vendor: 'Gelotti', name: 'Gelato: Strawberry', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
-      { id: '40', vendor: 'Gelotti', name: 'Gelato: Tiramisu', cat: 'Frozen Goods', stock: 2, min: 1, max: 2 },
-      { id: '41', vendor: 'Gelotti', name: 'Gelato: Vanilla', cat: 'Frozen Goods', stock: 6, min: 3, max: 6 },
-      { id: '42', vendor: 'Instacart', name: 'Coffee Beans Decaf', cat: 'Beverage Bases & Spices', stock: 0, min: 5, max: 20 },
-      { id: '43', vendor: 'Int Delight', name: 'Croissants', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '44', vendor: 'Int Delight', name: 'danish', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '45', vendor: 'Int Delight', name: 'Muffin', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '46', vendor: 'Local', name: 'Clorox', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
-      { id: '47', vendor: 'Local', name: 'Dish Soap', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
-      { id: '48', vendor: 'Local', name: 'Fabuloso', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
-      { id: '49', vendor: 'Local', name: 'Windex', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
-      { id: '50', vendor: 'Lovetta', name: 'Biscoff Cream', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '51', vendor: 'Lovetta', name: 'Milk Chocolate Drizzle', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '52', vendor: 'Lovetta', name: 'Pistachio Cream', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '53', vendor: 'Lovetta', name: 'White Chocolate Cream', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '54', vendor: 'Lovetta', name: 'Kunafa', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '55', vendor: 'Online', name: 'Hand Soap Bags', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
-      { id: '56', vendor: 'Online', name: 'Boxes Crepe with Lids', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '57', vendor: 'Online', name: 'Cups 16 Oz Latte with Lids', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '58', vendor: 'Online', name: 'Cups Mojito', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '59', vendor: 'Online', name: 'Cups Pudding', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '60', vendor: 'Restaurant Depot', name: 'Cardamom', cat: 'Beverage Bases & Spices', stock: 0, min: 5, max: 20 },
-      { id: '61', vendor: 'Restaurant Depot', name: 'Chili Flakes', cat: 'Beverage Bases & Spices', stock: 0, min: 5, max: 20 },
-      { id: '62', vendor: 'Restaurant Depot', name: 'Cinnamon Powder', cat: 'Beverage Bases & Spices', stock: 0, min: 5, max: 20 },
-      { id: '63', vendor: 'Restaurant Depot', name: 'Cocoa Milk Chocolate Hot Choco', cat: 'Beverage Bases & Spices', stock: 0, min: 5, max: 20 },
-      { id: '64', vendor: 'Restaurant Depot', name: 'Coffee Beans', cat: 'Beverage Bases & Spices', stock: 4, min: 5, max: 20 },
-      { id: '65', vendor: 'Restaurant Depot', name: 'Ginger', cat: 'Beverage Bases & Spices', stock: 0, min: 0, max: 0 },
-      { id: '66', vendor: 'Restaurant Depot', name: 'Moroccan Mint Tea', cat: 'Beverage Bases & Spices', stock: 0, min: 0, max: 0 },
-      { id: '67', vendor: 'Restaurant Depot', name: 'Pepper', cat: 'Beverage Bases & Spices', stock: 0, min: 0, max: 0 },
-      { id: '68', vendor: 'Restaurant Depot', name: 'Red Bull', cat: 'Beverage Bases & Spices', stock: 0, min: 0, max: 0 },
-      { id: '69', vendor: 'Restaurant Depot', name: 'Water', cat: 'Beverage Bases & Spices', stock: 0, min: 0, max: 0 },
-      { id: '70', vendor: 'Restaurant Depot', name: 'Garbage bags', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
-      { id: '71', vendor: 'Restaurant Depot', name: 'PaperTowels', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
-      { id: '72', vendor: 'Restaurant Depot', name: 'roll towels', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
-      { id: '73', vendor: 'Restaurant Depot', name: 'Toilet Paper', cat: 'Cleaning & Janitorial', stock: 0, min: 0, max: 0 },
-      { id: '74', vendor: 'Restaurant Depot', name: '2% Milk', cat: 'Dairy & Milks', stock: 18, min: 6, max: 18 },
-      { id: '75', vendor: 'Restaurant Depot', name: 'Almond Milk', cat: 'Dairy & Milks', stock: 10, min: 3, max: 10 },
-      { id: '76', vendor: 'Restaurant Depot', name: 'Butter', cat: 'Dairy & Milks', stock: 0, min: 0, max: 0 },
-      { id: '77', vendor: 'Restaurant Depot', name: 'Half & Half', cat: 'Dairy & Milks', stock: 0, min: 0, max: 0 },
-      { id: '78', vendor: 'Restaurant Depot', name: 'Heavy Cream', cat: 'Dairy & Milks', stock: 0, min: 0, max: 0 },
-      { id: '79', vendor: 'Restaurant Depot', name: 'Lactaid Milk', cat: 'Dairy & Milks', stock: 12, min: 5, max: 12 },
-      { id: '80', vendor: 'Restaurant Depot', name: 'Oat Milk', cat: 'Dairy & Milks', stock: 18, min: 6, max: 18 },
-      { id: '81', vendor: 'Restaurant Depot', name: 'Soy Milk', cat: 'Dairy & Milks', stock: 0, min: 0, max: 0 },
-      { id: '82', vendor: 'Restaurant Depot', name: 'whipped Topping', cat: 'Dairy & Milks', stock: 0, min: 0, max: 0 },
-      { id: '83', vendor: 'Restaurant Depot', name: 'Whole Milk', cat: 'Dairy & Milks', stock: 12, min: 4, max: 12 },
-      { id: '84', vendor: 'Restaurant Depot', name: 'Almond Butter', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '85', vendor: 'Restaurant Depot', name: 'Baking powder', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '86', vendor: 'Restaurant Depot', name: 'Baking Soda', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '87', vendor: 'Restaurant Depot', name: 'Brown Sugar Small Pack', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '88', vendor: 'Restaurant Depot', name: 'Flour', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '89', vendor: 'Restaurant Depot', name: 'Oil Spray Pam', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '90', vendor: 'Restaurant Depot', name: 'Olive Oil', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '91', vendor: 'Restaurant Depot', name: 'Salt', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '92', vendor: 'Restaurant Depot', name: 'Splenda Small Pack', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '93', vendor: 'Restaurant Depot', name: 'Sugar (Granulated)', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '94', vendor: 'Restaurant Depot', name: 'Sugar Small Pack', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '95', vendor: 'Restaurant Depot', name: 'Sugar Gelato Cone', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '96', vendor: 'Restaurant Depot', name: 'Vanilla Extract', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '97', vendor: 'Restaurant Depot', name: 'Vegetable Oil', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '98', vendor: 'Restaurant Depot', name: 'Waffer Gelato Cone', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '99', vendor: 'Restaurant Depot', name: 'waffle Gelato Cone', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '100', vendor: 'Restaurant Depot', name: 'Cherry Tomatoes', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '101', vendor: 'Restaurant Depot', name: 'Cucumber', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '102', vendor: 'Restaurant Depot', name: 'Fresh Fruit Avocado', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '103', vendor: 'Restaurant Depot', name: 'Fresh Fruit Banana', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '104', vendor: 'Restaurant Depot', name: 'Fresh Fruit Blueberries', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '105', vendor: 'Restaurant Depot', name: 'Fresh Fruit Green Apples', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '106', vendor: 'Restaurant Depot', name: 'Fresh Fruit Mango', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '107', vendor: 'Restaurant Depot', name: 'Fresh Fruit Pineapple', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '108', vendor: 'Restaurant Depot', name: 'Fresh Fruit Raspberry', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '109', vendor: 'Restaurant Depot', name: 'Fresh Fruit Strawberry', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '110', vendor: 'Restaurant Depot', name: 'Fresh Fruit Watermelon', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '111', vendor: 'Restaurant Depot', name: 'Lime', cat: 'Fresh Produce', stock: 0, min: 2, max: 5 },
-      { id: '112', vendor: 'Restaurant Depot', name: 'Microgreens', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '113', vendor: 'Restaurant Depot', name: 'Mint Leaves', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '114', vendor: 'Restaurant Depot', name: 'Mushrooms', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '115', vendor: 'Restaurant Depot', name: 'Olives', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '116', vendor: 'Restaurant Depot', name: 'Spinach', cat: 'Fresh Produce', stock: 0, min: 0, max: 0 },
-      { id: '117', vendor: 'Restaurant Depot', name: 'Frozen Fruit Mango', cat: 'Frozen Goods', stock: 0, min: 0, max: 0 },
-      { id: '118', vendor: 'Restaurant Depot', name: 'Frozen Fruit Mixed Berries', cat: 'Frozen Goods', stock: 0, min: 0, max: 0 },
-      { id: '119', vendor: 'Restaurant Depot', name: 'Frozen Fruit Pineapple', cat: 'Frozen Goods', stock: 0, min: 0, max: 0 },
-      { id: '120', vendor: 'Restaurant Depot', name: 'Frozen Fruit Strawberry', cat: 'Frozen Goods', stock: 0, min: 0, max: 0 },
-      { id: '121', vendor: 'Restaurant Depot', name: 'Coffee Filters', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '122', vendor: 'Restaurant Depot', name: 'Gloves', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '123', vendor: 'Restaurant Depot', name: 'Napkins', cat: 'Packaging & Disposables', stock: 4, min: 5, max: 20 },
-      { id: '124', vendor: 'Restaurant Depot', name: 'Paper plates', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '125', vendor: 'Restaurant Depot', name: 'Plastic Cups Outside', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '126', vendor: 'Restaurant Depot', name: 'sleeves for Hot Cups', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '127', vendor: 'Restaurant Depot', name: 'Stir Sticks', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '128', vendor: 'Restaurant Depot', name: 'Utensils Kit', cat: 'Packaging & Disposables', stock: 0, min: 0, max: 0 },
-      { id: '129', vendor: 'Restaurant Depot', name: 'Cheddar Cheese', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
-      { id: '130', vendor: 'Restaurant Depot', name: 'Eggs', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
-      { id: '131', vendor: 'Restaurant Depot', name: 'Feta Cheese', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
-      { id: '132', vendor: 'Restaurant Depot', name: 'Fresh Mozzarella', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
-      { id: '133', vendor: 'Restaurant Depot', name: 'Greek Yogurt Vanilla', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
-      { id: '134', vendor: 'Restaurant Depot', name: 'Mozzarella Cheese (Shredded)', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
-      { id: '135', vendor: 'Restaurant Depot', name: 'Agave', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '136', vendor: 'Restaurant Depot', name: 'Caramel Syrup Hershey\'s', cat: 'Syrups & Sauces', stock: 4, min: 2, max: 4 },
-      { id: '137', vendor: 'Restaurant Depot', name: 'Chocolate Syrup Hershey', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '138', vendor: 'Restaurant Depot', name: 'Condensed Milk', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '139', vendor: 'Restaurant Depot', name: 'Honey', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '140', vendor: 'Restaurant Depot', name: 'Maple Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '141', vendor: 'Restaurant Depot', name: 'Nutella', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '142', vendor: 'Restaurant Depot', name: 'Peanut Butter Cream', cat: 'Syrups & Sauces', stock: 5, min: 2, max: 5 },
-      { id: '143', vendor: 'Restaurant Depot', name: 'Strawberry Syrup Hershey', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '144', vendor: 'Restaurant Depot', name: 'Almonds', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '145', vendor: 'Restaurant Depot', name: 'Biscoff / Lotus Crumbs', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '146', vendor: 'Restaurant Depot', name: 'Cashews', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '147', vendor: 'Restaurant Depot', name: 'Chocolate Sprinkles', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '148', vendor: 'Restaurant Depot', name: 'Cinnamon Toast Crunch', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '149', vendor: 'Restaurant Depot', name: 'Cocoa Dust', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '150', vendor: 'Restaurant Depot', name: 'Ferrero', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '151', vendor: 'Restaurant Depot', name: 'Fruity Pebbles', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '152', vendor: 'Restaurant Depot', name: 'Graham Crumble', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '153', vendor: 'Restaurant Depot', name: 'Kinder Bueno', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '154', vendor: 'Restaurant Depot', name: 'M&M\'s', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '155', vendor: 'Restaurant Depot', name: 'Nilla cookie', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '156', vendor: 'Restaurant Depot', name: 'Oreo', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '157', vendor: 'Restaurant Depot', name: 'Pecans', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '158', vendor: 'Restaurant Depot', name: 'Pistachio Whole', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '159', vendor: 'Restaurant Depot', name: 'Powdered Sugar', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '160', vendor: 'Restaurant Depot', name: 'Rainbow Sprinkles', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '161', vendor: 'Restaurant Depot', name: 'Reese\'s Cups', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '162', vendor: 'Restaurant Depot', name: 'Reese\'s Pieces', cat: 'Toppings & Add-ins', stock: 0, min: 0, max: 0 },
-      { id: '163', vendor: 'ShopRite', name: 'Bubly Mint Lime Water', cat: 'Beverage Bases & Spices', stock: 0, min: 5, max: 20 },
-      { id: '164', vendor: 'ShopRite', name: 'Truffle Oil', cat: 'Dry Goods & Baking', stock: 0, min: 0, max: 0 },
-      { id: '165', vendor: 'ShopRite', name: 'Turkey Oven Roasted Breast', cat: 'Proteins & Deli', stock: 0, min: 0, max: 0 },
-      { id: '166', vendor: 'Webstaurant', name: 'Matcha Powder', cat: 'Beverage Bases & Spices', stock: 0, min: 0, max: 0 },
-      { id: '167', vendor: 'Webstaurant', name: 'Blue Curacao Syrup', cat: 'Syrups & Sauces', stock: 7, min: 3, max: 7 },
-      { id: '168', vendor: 'Webstaurant', name: 'Blueberry Syrup', cat: 'Syrups & Sauces', stock: 5, min: 1, max: 5 },
-      { id: '169', vendor: 'Webstaurant', name: 'Brown Sugar Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '170', vendor: 'Webstaurant', name: 'Cane Sugar Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '171', vendor: 'Webstaurant', name: 'Caramel Syrup Sugar Free', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '172', vendor: 'Webstaurant', name: 'Caramel Syrup Drizzle', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '173', vendor: 'Webstaurant', name: 'Chai Latte Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '174', vendor: 'Webstaurant', name: 'Coconut Syrup', cat: 'Syrups & Sauces', stock: 5, min: 2, max: 5 },
-      { id: '175', vendor: 'Webstaurant', name: 'Cookie Butter Syrup', cat: 'Syrups & Sauces', stock: 2, min: 1, max: 2 },
-      { id: '176', vendor: 'Webstaurant', name: 'Dark chocolate Syrup Drizzle', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '177', vendor: 'Webstaurant', name: 'Dulce de Leche Syrup Drizzle', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '178', vendor: 'Webstaurant', name: 'Green Apple Syrup', cat: 'Syrups & Sauces', stock: 5, min: 2, max: 5 },
-      { id: '179', vendor: 'Webstaurant', name: 'Hazelnut Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '180', vendor: 'Webstaurant', name: 'Hazelnut Syrup Sugar Free', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '181', vendor: 'Webstaurant', name: 'Kiwi Syrup', cat: 'Syrups & Sauces', stock: 5, min: 2, max: 5 },
-      { id: '182', vendor: 'Webstaurant', name: 'Mango Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '183', vendor: 'Webstaurant', name: 'Mango Syrup Puree', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '184', vendor: 'Webstaurant', name: 'Passion Fruit Syrup', cat: 'Syrups & Sauces', stock: 7, min: 4, max: 7 },
-      { id: '185', vendor: 'Webstaurant', name: 'Peach Syrup', cat: 'Syrups & Sauces', stock: 5, min: 2, max: 5 },
-      { id: '186', vendor: 'Webstaurant', name: 'Pineapple Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '187', vendor: 'Webstaurant', name: 'Pineapple Syrup Puree', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '188', vendor: 'Webstaurant', name: 'Pumpkin Pie Syrup Drizzle', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '189', vendor: 'Webstaurant', name: 'Raspberry Syrup', cat: 'Syrups & Sauces', stock: 5, min: 3, max: 5 },
-      { id: '190', vendor: 'Webstaurant', name: 'Strawberry Syrup', cat: 'Syrups & Sauces', stock: 4, min: 2, max: 4 },
-      { id: '191', vendor: 'Webstaurant', name: 'Strawberry Syrup Puree', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '192', vendor: 'Webstaurant', name: 'Ube Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '193', vendor: 'Webstaurant', name: 'Vanilla Syrup', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '194', vendor: 'Webstaurant', name: 'Vanilla Syrup Sugar Free', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '195', vendor: 'Webstaurant', name: 'Watermelon Syrup', cat: 'Syrups & Sauces', stock: 4, min: 2, max: 4 },
-      { id: '196', vendor: 'Webstaurant', name: 'White Chocolate Syrup Drizzle', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 },
-      { id: '197', vendor: 'Webstaurant', name: 'Wildberry Syrup Puree', cat: 'Syrups & Sauces', stock: 0, min: 0, max: 0 }
-    ];
-
-    let skus = JSON.parse(localStorage.getItem('swirla_skus')) || INITIAL_SKUS;
-    let buyOrders = JSON.parse(localStorage.getItem('swirla_orders')) || {};
-    let itemPhotos = {};
-    let cloudBackups = {};
-    let filterLowStock = false;
-    let filterNeedsPar = false;
-    let activeCameraSkuId = null;
-    let activeDetailSkuId = null;
-    let pendingReceiveSummary = [];
-    let deferredChecklistRender = false;
-
-    function isEditingChecklist() {
-      const active = document.activeElement;
-      return !!(active && active.closest && active.closest('#checklistItemsList') && active.type !== 'checkbox');
-    }
-
-    function flushDeferredChecklistRender() {
-      if (deferredChecklistRender) {
-        deferredChecklistRender = false;
-        setTimeout(() => {
-          if (!isEditingChecklist()) renderChecklist();
-        }, 50);
-      }
-    }
-
-    function refreshOpenDetailModal() {
-      if (activeDetailSkuId && document.getElementById('itemDetailModal').style.display === 'flex') {
-        const stillExists = skus.some(s => s.id === activeDetailSkuId);
-        if (stillExists) {
-          openItemDetailModal(activeDetailSkuId);
-        } else {
-          closeModal('itemDetailModal');
-        }
-      }
-    }
-
-    /* 5. Auth & PIN Logic */
-    function renderAuthProfiles() {
-      const list = document.getElementById('authProfileList');
-      list.innerHTML = '';
-      accounts.forEach(acc => {
-        const btn = document.createElement('button');
-        btn.className = 'profile-btn';
-        btn.onclick = () => selectLoginProfile(acc.id);
-        btn.innerHTML = `
-          <div>
-            <div class="profile-name">${escapeHtml(acc.name)}</div>
-            <div style="font-size:11px; color:var(--text-muted);">Tap to enter PIN</div>
-          </div>
-          <span class="role-pill role-${acc.role}">${roleLabel(acc.role)}</span>
-        `;
-        list.appendChild(btn);
-      });
-    }
-
-    function selectLoginProfile(accId) {
-      const acc = accounts.find(a => a.id === accId);
-      if (!acc) return;
-      pendingLoginAccount = acc;
-      pinBuffer = '';
-      updatePinDots();
-      document.getElementById('authError').innerText = '';
-      document.getElementById('authSelectedName').innerText = acc.name;
-      document.getElementById('authSelectedRole').innerText = roleLabel(acc.role);
-      document.getElementById('authSubtitle').innerText = 'Enter your 4-digit PIN';
-      document.getElementById('authProfileStep').style.display = 'none';
-      document.getElementById('authPinStep').style.display = 'flex';
-    }
-
-    function backToProfileList() {
-      pendingLoginAccount = null;
-      pinBuffer = '';
-      updatePinDots();
-      document.getElementById('authError').innerText = '';
-      document.getElementById('authSubtitle').innerText = 'Select your account to sign in';
-      document.getElementById('authPinStep').style.display = 'none';
-      document.getElementById('authProfileStep').style.display = 'block';
-    }
-
-    function updatePinDots() {
-      for (let i = 0; i < 4; i++) {
-        document.getElementById(`pinDot${i}`).classList.toggle('filled', i < pinBuffer.length);
-      }
-    }
-
-    function pressPinDigit(digit) {
-      if (!pendingLoginAccount || pinBuffer.length >= 4) return;
-      document.getElementById('authError').innerText = '';
-      pinBuffer += digit;
-      updatePinDots();
-
-      if (pinBuffer.length === 4) {
-        if (pinBuffer === String(pendingLoginAccount.pin)) {
-          completeLogin(pendingLoginAccount);
-        } else {
-          document.getElementById('authError').innerText = 'Incorrect PIN. Try again.';
-          setTimeout(() => {
-            pinBuffer = '';
-            updatePinDots();
-          }, 350);
-        }
-      }
-    }
-
-    function backspacePinDigit() {
-      if (!pendingLoginAccount || pinBuffer.length === 0) return;
-      pinBuffer = pinBuffer.slice(0, -1);
-      updatePinDots();
-    }
-
-    function clearPinBuffer() {
-      pinBuffer = '';
-      document.getElementById('authError').innerText = '';
-      updatePinDots();
-    }
-
-    function completeLogin(acc) {
-      currentUser = acc;
-      localStorage.setItem('swirla_session', JSON.stringify({ id: acc.id, pin: String(acc.pin) }));
-      document.getElementById('authOverlay').style.display = 'none';
-      backToProfileList();
-      applyRoleUI();
-      if (acc.role === 'buyer') {
-        switchView('checklist');
-      } else {
-        switchView('catalog');
-      }
-      showToast(`Signed in as ${acc.name} (${roleLabel(acc.role)})`, 'info');
-    }
-
-    function logoutUser() {
-      currentUser = null;
-      localStorage.removeItem('swirla_session');
-      ['accountsModal', 'backupsModal', 'receiveModal', 'telegramModal', 'skuModal', 'itemDetailModal'].forEach(closeModal);
-      backToProfileList();
-      renderAuthProfiles();
-      document.getElementById('authOverlay').style.display = 'flex';
-    }
-
-    function restoreSavedSession() {
-      if (currentUser) {
-        const match = accounts.find(a => a.id === currentUser.id && String(a.pin) === String(currentUser.pin));
-        if (!match) {
-          logoutUser();
-          showToast('Your access was updated by Management. Please sign in again.', 'warning', 4000);
-          return;
-        }
-        currentUser = match;
-        applyRoleUI();
-        return;
-      }
-
-      const raw = localStorage.getItem('swirla_session');
-      if (raw) {
-        try {
-          const saved = JSON.parse(raw);
-          const match = accounts.find(a => a.id === saved.id && String(a.pin) === String(saved.pin));
-          if (match) {
-            currentUser = match;
-            document.getElementById('authOverlay').style.display = 'none';
-            applyRoleUI();
-            if (match.role === 'buyer') switchView('checklist');
-            return;
-          }
-        } catch (err) {}
-        localStorage.removeItem('swirla_session');
-      }
-
-      document.getElementById('authOverlay').style.display = 'flex';
-    }
-
-    function applyRoleUI() {
-      if (!currentUser) return;
-      const mgr = isManager();
-      const leadOrMgr = isLeaderOrManager();
-      const buyerOrMgr = isBuyerOrManager();
-
-      document.getElementById('userStatusPill').innerText = `👤 ${currentUser.name} (${roleLabel(currentUser.role)}) · Switch`;
-      document.getElementById('btnTeamAccess').style.display = mgr ? 'inline-flex' : 'none';
-      document.getElementById('btnBackups').style.display = mgr ? 'inline-flex' : 'none';
-      document.getElementById('telegramStatusBadge').style.cursor = mgr ? 'pointer' : 'default';
-      document.getElementById('telegramStatusBadge').title = mgr ? 'Configure Telegram Settings' : 'Telegram Notifications Active';
-
-      document.getElementById('btnAddSku').style.display = leadOrMgr ? 'inline-flex' : 'none';
-      document.getElementById('btnClearFulfilled').style.display = leadOrMgr ? 'inline-flex' : 'none';
-      document.getElementById('btnClearAll').style.display = mgr ? 'inline-flex' : 'none';
-      document.getElementById('checkoutUserDisplay').innerText = `${currentUser.name} (${roleLabel(currentUser.role)})`;
-
-      const checkoutActions = document.getElementById('checkoutActions');
-      let actionHtml = '';
-      if (leadOrMgr) {
-        actionHtml += `<button class="btn btn-primary" id="sendTelegramBtn" style="padding:10px 13px; font-size:13px;" onclick="dispatchToTelegram()">✈️ Send Order</button>`;
-      }
-      if (buyerOrMgr) {
-        actionHtml += `<button class="btn btn-outline" id="sendBuyerReportBtn" style="padding:10px 12px; font-size:12px;" onclick="dispatchBuyerReport()">🚚 Bought Report</button>`;
-        actionHtml += `<button class="btn btn-success" style="padding:10px 13px; font-size:13px;" onclick="openReceiveModal()">✅ Receive Stock</button>`;
-      }
-      checkoutActions.innerHTML = actionHtml;
-
-      renderCatalog();
-      if (!isEditingChecklist()) renderChecklist();
-      refreshOpenDetailModal();
-    }
-
-    // Physical keyboard support for PIN login
-    document.addEventListener('keydown', e => {
-      if (document.getElementById('authOverlay').style.display !== 'none' && pendingLoginAccount) {
-        if (/^[0-9]$/.test(e.key)) {
-          pressPinDigit(e.key);
-        } else if (e.key === 'Backspace') {
-          backspacePinDigit();
-        } else if (e.key === 'Escape') {
-          backToProfileList();
-        }
-      }
-    });
-
-    /* 6. Firebase Realtime Listeners */
-    // Synchronize Accounts
-    db.ref('swirla/accounts').on('value', snapshot => {
-      const data = snapshot.val();
-      const parsed = Array.isArray(data) ? data : (data ? Object.values(data) : null);
-      if (parsed && parsed.length > 0) {
-        accounts = parsed;
-      } else {
-        accounts = DEFAULT_ACCOUNTS;
-        db.ref('swirla/accounts').set(DEFAULT_ACCOUNTS);
-      }
-      accountsLoaded = true;
-      renderAuthProfiles();
-      renderAccountsModalList();
-      restoreSavedSession();
-    });
-
-    // Synchronize SKUs
-    db.ref('swirla/skus').on('value', snapshot => {
-      const data = snapshot.val();
-      const parsed = Array.isArray(data) ? data : (data ? Object.values(data) : null);
-      if (parsed && parsed.length > 0) {
-        skus = parsed;
-        localStorage.setItem('swirla_skus', JSON.stringify(skus));
-        populateFilters();
-        renderCatalog();
-        if (!isEditingChecklist()) renderChecklist();
-        else deferredChecklistRender = true;
-        refreshOpenDetailModal();
-      } else {
-        db.ref('swirla/skus').set(INITIAL_SKUS);
-      }
-    });
-
-    // Synchronize Buy Checklist
-    db.ref('swirla/orders').on('value', snapshot => {
-      buyOrders = snapshot.val() || {};
-      localStorage.setItem('swirla_orders', JSON.stringify(buyOrders));
-      renderCatalog();
-      if (!isEditingChecklist()) renderChecklist();
-      else deferredChecklistRender = true;
-      if (activeDetailSkuId && document.getElementById('itemDetailModal').style.display === 'flex') {
-        updateDetailOrderButton(activeDetailSkuId);
-      }
-    });
-
-    // Synchronize Cloud Backups List
-    db.ref('swirla/backups').on('value', snapshot => {
-      cloudBackups = snapshot.val() || {};
-      if (document.getElementById('backupsModal').style.display === 'flex') {
-        renderCloudBackupsList();
-      }
-    });
-
-    function pushAccountsToCloud() {
-      db.ref('swirla/accounts').set(accounts);
-    }
-
-    function pushSkusToCloud() {
-      db.ref('swirla/skus').set(skus);
-      localStorage.setItem('swirla_skus', JSON.stringify(skus));
-    }
-
-    function pushOrdersToCloud() {
-      db.ref('swirla/orders').set(buyOrders);
-      localStorage.setItem('swirla_orders', JSON.stringify(buyOrders));
-    }
-
-    // Synchronize SKU Photos across all devices
-    const photosRef = db.ref('swirla/photos');
-    let photoRenderTimer = null;
-
-    function schedulePhotoRender(changedSkuId) {
-      if (activeDetailSkuId === changedSkuId) {
-        renderDetailPhotos();
-      }
-      clearTimeout(photoRenderTimer);
-      photoRenderTimer = setTimeout(() => {
-        renderCatalog();
-        if (!isEditingChecklist()) renderChecklist();
-        else deferredChecklistRender = true;
-      }, 60);
-    }
-
-    function handleCloudPhotoUpdate(snapshot) {
-      const skuId = snapshot.key;
-      const val = snapshot.val();
-      itemPhotos[skuId] = Array.isArray(val) ? val : (val ? [val] : []);
-      schedulePhotoRender(skuId);
-    }
-
-    photosRef.on('child_added', handleCloudPhotoUpdate);
-    photosRef.on('child_changed', handleCloudPhotoUpdate);
-    photosRef.on('child_removed', snapshot => {
-      const skuId = snapshot.key;
-      delete itemPhotos[skuId];
-      schedulePhotoRender(skuId);
-    });
-
-    function pushSkuPhotosToCloud(id) {
-      const photos = Array.isArray(itemPhotos[id]) ? itemPhotos[id] : (itemPhotos[id] ? [itemPhotos[id]] : []);
-      if (photos.length === 0) {
-        return db.ref('swirla/photos/' + id).remove();
-      }
-      return db.ref('swirla/photos/' + id).set(photos);
-    }
-
-    // One-time migration for any photos saved locally before cloud sync
-    async function migrateLocalPhotos() {
-      const rawLocal = localStorage.getItem('swirla_photos');
-      if (rawLocal && !localStorage.getItem('swirla_photos_migrated')) {
-        try {
-          const localPhotos = JSON.parse(rawLocal) || {};
-          const snap = await photosRef.once('value');
-          const cloudPhotos = snap.val() || {};
-          for (const skuId of Object.keys(localPhotos)) {
-            if (!cloudPhotos[skuId]) {
-              const arr = Array.isArray(localPhotos[skuId]) ? localPhotos[skuId] : [localPhotos[skuId]];
-              if (arr.length > 0) {
-                await db.ref('swirla/photos/' + skuId).set(arr);
-              }
-            }
-          }
-          localStorage.setItem('swirla_photos_migrated', 'true');
-          localStorage.removeItem('swirla_photos');
-        } catch (err) {
-          console.warn('Local photo migration skipped:', err);
-        }
-      }
-    }
-    migrateLocalPhotos();
-
-    /* 7. Manager Team & PIN Management */
-    function openAccountsModal() {
-      if (!isManager()) return;
-      resetAccountForm();
-      renderAccountsModalList();
-      document.getElementById('accountsModal').style.display = 'flex';
-    }
-
-    function resetAccountForm() {
-      document.getElementById('accEditId').value = '';
-      document.getElementById('accFormTitle').innerText = 'Add New Team Member';
-      document.getElementById('accFormName').value = '';
-      document.getElementById('accFormRole').value = 'leader';
-      document.getElementById('accFormPin').value = '';
-      document.getElementById('accCancelEditBtn').style.display = 'none';
-    }
-
-    function editAccount(id) {
-      const acc = accounts.find(a => a.id === id);
-      if (!acc) return;
-      document.getElementById('accEditId').value = acc.id;
-      document.getElementById('accFormTitle').innerText = `Edit ${acc.name}`;
-      document.getElementById('accFormName').value = acc.name;
-      document.getElementById('accFormRole').value = acc.role;
-      document.getElementById('accFormPin').value = acc.pin;
-      document.getElementById('accCancelEditBtn').style.display = 'inline-flex';
-    }
-
-    function saveAccountForm() {
-      if (!isManager()) return;
-      const id = document.getElementById('accEditId').value;
-      const name = document.getElementById('accFormName').value.trim();
-      const role = document.getElementById('accFormRole').value;
-      const pin = document.getElementById('accFormPin').value.trim();
-
-      if (!name) {
-        showToast('Enter a team member name.', 'warning');
-        return;
-      }
-      if (!/^\d{4}$/.test(pin)) {
-        showToast('PIN must be exactly 4 digits (numbers only).', 'warning');
-        return;
-      }
-
-      if (id) {
-        const idx = accounts.findIndex(a => a.id === id);
-        if (idx === -1) return;
-        if (accounts[idx].role === 'manager' && role !== 'manager') {
-          const otherManagers = accounts.filter(a => a.role === 'manager' && a.id !== id);
-          if (otherManagers.length === 0) {
-            showToast('At least one Manager account is required.', 'error');
-            return;
-          }
-        }
-        accounts[idx] = { ...accounts[idx], name, role, pin };
-        if (currentUser && currentUser.id === id) {
-          currentUser = accounts[idx];
-          localStorage.setItem('swirla_session', JSON.stringify({ id: currentUser.id, pin: String(currentUser.pin) }));
-          applyRoleUI();
-        }
-        showToast(`Updated ${name}`, 'success');
-      } else {
-        if (accounts.some(a => a.name.toLowerCase() === name.toLowerCase())) {
-          showToast('A team member with this name already exists.', 'warning');
-          return;
-        }
-        accounts.push({ id: 'acc_' + Date.now(), name, role, pin });
-        showToast(`Added ${name} (${roleLabel(role)})`, 'success');
-      }
-
-      pushAccountsToCloud();
-      resetAccountForm();
-      renderAccountsModalList();
-    }
-
-    function removeAccount(id) {
-      if (!isManager()) return;
-      const target = accounts.find(a => a.id === id);
-      if (!target) return;
-      if (target.role === 'manager' && accounts.filter(a => a.role === 'manager').length <= 1) {
-        showToast('Cannot delete the only Manager account.', 'error');
-        return;
-      }
-      if (currentUser && currentUser.id === id) {
-        showToast('Switch to another Manager account before deleting yourself.', 'warning');
-        return;
-      }
-      if (!confirm(`Remove "${target.name}" and revoke their app access?`)) return;
-
-      accounts = accounts.filter(a => a.id !== id);
-      pushAccountsToCloud();
-      renderAccountsModalList();
-      showToast(`Revoked access for ${target.name}`, 'info');
-    }
-
-    function renderAccountsModalList() {
-      const container = document.getElementById('accountsList');
-      if (!container) return;
-      container.innerHTML = '';
-      accounts.forEach(acc => {
-        const row = document.createElement('div');
-        row.className = 'list-row-card';
-        row.innerHTML = `
-          <div style="min-width:0;">
-            <div style="font-weight:800; font-size:14px;">${escapeHtml(acc.name)}</div>
-            <div style="display:flex; gap:6px; align-items:center; margin-top:3px;">
-              <span class="role-pill role-${acc.role}">${roleLabel(acc.role)}</span>
-              <span style="font-size:11px; color:var(--text-muted); font-weight:700;">PIN: ${escapeHtml(acc.pin)}</span>
-            </div>
-          </div>
-          <div style="display:flex; gap:5px; flex-shrink:0;">
-            <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="editAccount('${acc.id}')">Edit</button>
-            <button class="btn btn-outline" style="padding:4px 8px; font-size:11px; color:var(--danger);" onclick="removeAccount('${acc.id}')">✕</button>
-          </div>
-        `;
-        container.appendChild(row);
-      });
-    }
-
-    /* 8. Manager Backups & Restore */
-    function openBackupsModal() {
-      if (!isManager()) return;
-      renderCloudBackupsList();
-      document.getElementById('backupsModal').style.display = 'flex';
-    }
-
-    function saveCloudSnapshot() {
-      if (!isManager()) return;
-      const input = document.getElementById('snapshotLabelInput');
-      const label = input.value.trim() || `Snapshot (${formatShortTime(Date.now())})`;
-      const id = 'bk_' + Date.now();
-      const snapshotData = {
-        id,
-        label,
-        createdBy: currentUser.name,
-        createdAt: Date.now(),
-        skus,
-        orders: buyOrders,
-        accounts
-      };
-      db.ref('swirla/backups/' + id).set(snapshotData)
-        .then(() => {
-          input.value = '';
-          showToast('Cloud restore point saved', 'success');
-        })
-        .catch(() => showToast('Failed to save snapshot.', 'error'));
-    }
-
-    function renderCloudBackupsList() {
-      const container = document.getElementById('cloudBackupsList');
-      const items = Object.values(cloudBackups || {}).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      if (items.length === 0) {
-        container.innerHTML = `<div style="text-align:center; padding:14px; font-size:12px; color:var(--text-muted); background:#f8fafc; border-radius:8px; border:1px dashed var(--border);">No cloud restore points yet. Tap <strong>+ Snapshot</strong> above.</div>`;
-        return;
-      }
-      container.innerHTML = '';
-      items.forEach(bk => {
-        const skuLen = Array.isArray(bk.skus) ? bk.skus.length : (bk.skus ? Object.keys(bk.skus).length : 0);
-        const row = document.createElement('div');
-        row.className = 'list-row-card';
-        row.innerHTML = `
-          <div style="min-width:0;">
-            <div style="font-size:13px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(bk.label)}</div>
-            <div style="font-size:11px; color:var(--text-muted);">${formatShortTime(bk.createdAt)} · ${skuLen} SKUs · by ${escapeHtml(bk.createdBy || 'Manager')}</div>
-          </div>
-          <div style="display:flex; gap:5px; flex-shrink:0;">
-            <button class="btn btn-primary" style="padding:4px 8px; font-size:11px;" onclick="restoreCloudSnapshot('${bk.id}')">Restore</button>
-            <button class="btn btn-outline" style="padding:4px 8px; font-size:11px; color:var(--danger);" onclick="deleteCloudSnapshot('${bk.id}')">✕</button>
-          </div>
-        `;
-        container.appendChild(row);
-      });
-    }
-
-    function restoreCloudSnapshot(bkId) {
-      if (!isManager()) return;
-      const bk = cloudBackups[bkId];
-      if (!bk) return;
-      if (!confirm(`Restore "${bk.label}"? This will overwrite current catalog counts, checklist, and accounts for all staff.`)) return;
-
-      if (bk.skus) {
-        skus = Array.isArray(bk.skus) ? bk.skus : Object.values(bk.skus);
-        pushSkusToCloud();
-      }
-      buyOrders = bk.orders || {};
-      pushOrdersToCloud();
-      if (bk.accounts) {
-        accounts = Array.isArray(bk.accounts) ? bk.accounts : Object.values(bk.accounts);
-        pushAccountsToCloud();
-      }
-      closeModal('backupsModal');
-      showToast(`Restored "${bk.label}"`, 'success', 4000);
-    }
-
-    function deleteCloudSnapshot(bkId) {
-      if (!isManager()) return;
-      if (!confirm('Delete this cloud snapshot?')) return;
-      db.ref('swirla/backups/' + bkId).remove();
-      showToast('Snapshot deleted', 'info');
-    }
-
-    function downloadFullBackup() {
-      if (!isManager()) return;
-      const payload = {
-        app: 'Swirla Ops Console',
-        exportedAt: new Date().toISOString(),
-        exportedBy: currentUser.name,
-        skus,
-        orders: buyOrders,
-        accounts,
-        photos: itemPhotos
-      };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `swirla-backup-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast('Backup file downloaded', 'success');
-    }
-
-    function handleBackupFileUpload(event) {
-      if (!isManager()) return;
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          const parsed = JSON.parse(e.target.result);
-          if (!parsed || !Array.isArray(parsed.skus)) {
-            showToast('Invalid Swirla backup file.', 'error');
-            return;
-          }
-          if (!confirm(`Restore ${parsed.skus.length} SKUs from this backup file? Current live data will be overwritten.`)) return;
-
-          skus = parsed.skus;
-          pushSkusToCloud();
-          if (parsed.orders !== undefined) {
-            buyOrders = parsed.orders || {};
-            pushOrdersToCloud();
-          }
-          if (Array.isArray(parsed.accounts) && parsed.accounts.length > 0) {
-            accounts = parsed.accounts;
-            pushAccountsToCloud();
-          }
-          if (parsed.photos && typeof parsed.photos === 'object') {
-            itemPhotos = parsed.photos;
-            db.ref('swirla/photos').set(itemPhotos);
-          }
-          closeModal('backupsModal');
-          showToast('Full backup restored to cloud!', 'success', 4000);
-        } catch (err) {
-          showToast('Could not read backup JSON file.', 'error');
-        }
-      };
-      reader.readAsText(file);
-      event.target.value = '';
-    }
-
-    function resetToOriginalCatalog() {
-      if (!isManager()) return;
-      if (!confirm('Reset the ENTIRE catalog back to the original 197 baseline items? Any added SKUs, Min/Max edits, and stock counts since day one will be reset (photos stay saved).')) return;
-      if (!confirm('Final confirmation: restore the original 197 baseline SKUs and clear the Buy Checklist?')) return;
-
-      skus = JSON.parse(JSON.stringify(INITIAL_SKUS));
-      buyOrders = {};
-      pushSkusToCloud();
-      pushOrdersToCloud();
-      closeModal('backupsModal');
-      showToast('Restored original 197-item baseline catalog', 'success', 4000);
-    }
-
-    // View Navigation
-    function switchView(view) {
-      document.getElementById('catalogView').style.display = (view === 'catalog') ? 'block' : 'none';
-      document.getElementById('checklistView').style.display = (view === 'checklist') ? 'block' : 'none';
-      document.getElementById('tabCatalog').classList.toggle('active', view === 'catalog');
-      document.getElementById('tabChecklist').classList.toggle('active', view === 'checklist');
-
-      if (view === 'checklist') renderChecklist();
-      else renderCatalog();
-    }
-
-    // Filters
-    function populateFilters() {
-      const vendors = [...new Set(skus.map(s => s.vendor))].sort();
-      const categories = [...new Set(skus.map(s => s.cat))].sort();
-
-      const vSelect = document.getElementById('vendorFilter');
-      const cSelect = document.getElementById('categoryFilter');
-
-      const currentV = vSelect.value;
-      const currentC = cSelect.value;
-
-      vSelect.innerHTML = '<option value="">(All Vendors)</option>';
-      vendors.forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        if (v === currentV) opt.selected = true;
-        vSelect.appendChild(opt);
-      });
-
-      cSelect.innerHTML = '<option value="">(All Categories)</option>';
-      categories.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c;
-        opt.textContent = c;
-        if (c === currentC) opt.selected = true;
-        cSelect.appendChild(opt);
-      });
-    }
-
-    function toggleLowStockFilter() {
-      filterLowStock = !filterLowStock;
-      document.getElementById('filterLowStockBtn').classList.toggle('active', filterLowStock);
-      renderCatalog();
-    }
-
-    function toggleNeedsParFilter() {
-      filterNeedsPar = !filterNeedsPar;
-      document.getElementById('filterNeedsParBtn').classList.toggle('active', filterNeedsPar);
-      renderCatalog();
-    }
-
-    // Catalog Rendering
-    function renderCatalog() {
-      const query = document.getElementById('searchBox').value.toLowerCase().trim();
-      const selVendor = document.getElementById('vendorFilter').value;
-      const selCat = document.getElementById('categoryFilter').value;
-      const grid = document.getElementById('itemsGrid');
-
-      const leadOrMgr = isLeaderOrManager();
-
-      const filtered = skus.filter(item => {
-        const matchesQuery = item.name.toLowerCase().includes(query) || item.vendor.toLowerCase().includes(query);
-        const matchesVendor = !selVendor || item.vendor === selVendor;
-        const matchesCat = !selCat || item.cat === selCat;
-        const matchesLow = !filterLowStock || (item.min > 0 && item.stock <= item.min);
-        const matchesNeedsPar = !filterNeedsPar || (item.min === 0 && item.max === 0);
-        return matchesQuery && matchesVendor && matchesCat && matchesLow && matchesNeedsPar;
-      });
-
-      document.getElementById('catalogCount').innerText = filtered.length;
-      grid.innerHTML = '';
-
-      filtered.forEach(item => {
-        const isBelowMin = item.min > 0 && item.stock <= item.min;
-        const isOrdered = buyOrders[item.id] !== undefined;
-        const photos = Array.isArray(itemPhotos[item.id]) ? itemPhotos[item.id] : (itemPhotos[item.id] ? [itemPhotos[item.id]] : []);
-        const latestPhoto = photos[photos.length - 1];
-        const photoCount = photos.length;
-        const unitLabel = item.unit || 'Units';
-        const stampHtml = item.updatedBy ? ` · <span>${escapeHtml(item.updatedBy)}</span>` : '';
-
-        const stockControlsHtml = leadOrMgr ? `
-          <div class="sku-qty-controls">
-            <button class="qty-btn" onclick="updateStock('${item.id}', -1)">−</button>
-            <input type="number" class="qty-input" value="${item.stock}" onchange="setStock('${item.id}', this.value)">
-            <button class="qty-btn" onclick="updateStock('${item.id}', 1)">+</button>
-          </div>
-        ` : `<span style="font-size:11px; font-weight:700; color:var(--text-muted);">Min ${item.min} / Max ${item.max}</span>`;
-
-        const actionsHtml = leadOrMgr ? `
-          <button class="btn btn-outline" onclick="openSkuModal('${item.id}')">Edit</button>
-          <button class="btn ${isOrdered ? 'btn-ordered' : 'btn-primary'}" onclick="toggleOrder('${item.id}')">
-            ${isOrdered ? '✓ In Checklist' : '+ Order'}
-          </button>
-        ` : `
-          <button class="btn btn-outline" onclick="triggerPhoto('${item.id}')">📷 Snap Photo</button>
-          <button class="btn btn-primary" onclick="openItemDetailModal('${item.id}')">👁️ Details</button>
-        `;
-
-        const card = document.createElement('div');
-        card.className = `sku-card ${isBelowMin ? 'below-min' : ''}`;
-        card.innerHTML = `
-          <div class="sku-header">
-            <div class="photo-trigger" onclick="handleThumbnailClick('${item.id}')">
-              ${latestPhoto ? `<img src="${latestPhoto}"><span style="position:absolute; bottom:2px; right:4px; background:rgba(0,0,0,0.7); color:#fff; font-size:9px; font-weight:700; padding:1px 4px; border-radius:4px;">${photoCount}/3</span>` : `<span>📷</span><span>+ Photos</span>`}
-            </div>
-            <div class="sku-info">
-              <div class="sku-vendor">${escapeHtml(item.vendor)}</div>
-              <div class="sku-name" title="${escapeHtml(item.name)}" onclick="openItemDetailModal('${item.id}')">${escapeHtml(item.name)}</div>
-              <div class="sku-cat">${escapeHtml(item.cat)}</div>
-            </div>
-          </div>
-
-          <div class="sku-stock-row">
-            <div>
-              <span style="font-weight:700;">${item.stock} ${escapeHtml(unitLabel)}</span>
-              ${isBelowMin ? '<span style="color:var(--danger); font-size:11px; margin-left:4px;">(Below Min)</span>' : ''}
-              <div style="font-size:10px; color:var(--text-muted);">Min: ${item.min} / Max: ${item.max}${stampHtml}</div>
-            </div>
-            ${stockControlsHtml}
-          </div>
-
-          <div class="sku-card-actions">
-            ${actionsHtml}
-          </div>
-        `;
-        grid.appendChild(card);
-      });
-
-      updateChecklistBadge();
-    }
-
-    // Stock Modifications (Manager & Shift Leaders)
-    function updateStock(id, delta) {
-      if (!isLeaderOrManager()) return;
-      const item = skus.find(s => s.id === id);
-      if (item) {
-        item.stock = Math.max(0, item.stock + delta);
-        item.updatedBy = currentUser.name;
-        item.updatedAt = Date.now();
-        pushSkusToCloud();
-        renderCatalog();
-      }
-    }
-
-    function setStock(id, val) {
-      if (!isLeaderOrManager()) return;
-      const item = skus.find(s => s.id === id);
-      if (item) {
-        item.stock = Math.max(0, parseInt(val) || 0);
-        item.updatedBy = currentUser.name;
-        item.updatedAt = Date.now();
-        pushSkusToCloud();
-        renderCatalog();
-      }
-    }
-
-    // Smart Thumbnail Click: Gallery if photos exist, Camera if 0 photos
-    function handleThumbnailClick(id) {
-      const photos = Array.isArray(itemPhotos[id]) ? itemPhotos[id] : (itemPhotos[id] ? [itemPhotos[id]] : []);
-      if (photos.length > 0) {
-        openItemDetailModal(id);
-      } else {
-        triggerPhoto(id);
-      }
-    }
-
-    // Compressed Multi-Photo Capture with Cloud Sync (All roles can snap store/shelf photos)
-    function triggerPhoto(id) {
-      activeCameraSkuId = id;
-      const photos = Array.isArray(itemPhotos[id]) ? itemPhotos[id] : (itemPhotos[id] ? [itemPhotos[id]] : []);
-      if (photos.length >= 3) {
-        if (!confirm('This item already has 3 photos. Taking another will replace the oldest one. Continue?')) return;
-      }
-      document.getElementById('cameraInput').click();
-    }
-
-    function handlePhotoCapture(event) {
-      const file = event.target.files[0];
-      const targetSkuId = activeCameraSkuId;
-      if (!file || !targetSkuId) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-          const canvas = document.createElement('canvas');
-          const maxDim = 720;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height && width > maxDim) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else if (height > maxDim) {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.60);
-
-          if (!Array.isArray(itemPhotos[targetSkuId])) {
-            itemPhotos[targetSkuId] = itemPhotos[targetSkuId] ? [itemPhotos[targetSkuId]] : [];
-          }
-
-          if (itemPhotos[targetSkuId].length >= 3) {
-            itemPhotos[targetSkuId].shift();
-          }
-          itemPhotos[targetSkuId].push(compressedDataUrl);
-
-          renderCatalog();
-          if (!isEditingChecklist()) renderChecklist();
-          if (activeDetailSkuId === targetSkuId) renderDetailPhotos();
-
-          pushSkuPhotosToCloud(targetSkuId)
-            .then(() => {
-              showToast(`Photo synced (${itemPhotos[targetSkuId].length}/3)`, 'success');
-            })
-            .catch(() => {
-              showToast('Cloud sync failed. Check internet connection.', 'error');
-            });
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-      event.target.value = '';
-    }
-
-    // Order Actions (One-by-one ordering by Manager & Leaders)
-    function toggleOrder(id) {
-      if (!isLeaderOrManager()) return;
-      const item = skus.find(s => s.id === id);
-      if (!item) return;
-
-      if (buyOrders[id]) {
-        delete buyOrders[id];
-        showToast(`Removed ${item.name}`, 'info');
-      } else {
-        const orderQty = (item.max > item.stock) ? (item.max - item.stock) : 1;
-        buyOrders[id] = {
-          qty: orderQty,
-          bought: 0,
-          done: false,
-          unit: item.unit || 'Units',
-          note: '',
-          addedBy: currentUser ? currentUser.name : 'Staff'
-        };
-        showToast(`Added ${item.name}`, 'success');
-      }
-      pushOrdersToCloud();
-      renderCatalog();
-      renderChecklist();
-      if (activeDetailSkuId === id) updateDetailOrderButton(id);
-    }
-
-    function updateChecklistBadge() {
-      const count = Object.keys(buyOrders).filter(id => skus.some(s => s.id === id)).length;
-      document.getElementById('checklistCount').innerText = count;
-    }
-
-    function getOrderBoughtQty(order) {
-      const need = Math.max(1, parseInt(order.qty) || 1);
-      if (order.bought !== undefined && order.bought !== null) {
-        return Math.max(0, parseInt(order.bought) || 0);
-      }
-      return order.done ? need : 0;
-    }
-
-    function getStatusInfo(need, bought) {
-      if (bought >= need) return { cls: 'status-bought', text: `Bought (${bought}/${need})`, done: true };
-      if (bought > 0) return { cls: 'status-partial', text: `Partial (${bought}/${need})`, done: false };
-      return { cls: 'status-pending', text: 'Pending', done: false };
-    }
-
-    // Checklist View
-    function renderChecklist() {
-      const container = document.getElementById('checklistItemsList');
-      const orderIds = Object.keys(buyOrders).filter(id => skus.some(s => s.id === id));
-
-      if (orderIds.length === 0) {
-        container.innerHTML = `
-          <div style="text-align:center; padding:40px 16px; color:var(--text-muted);">
-            <div style="font-size:32px; margin-bottom:8px;">📋</div>
-            <div style="font-weight:700;">Buying checklist is empty.</div>
-            <div style="font-size:13px; margin-top:4px;">Shift leaders can tap "+ Order" on catalog items to build a list.</div>
-          </div>
-        `;
-        return;
-      }
-
-      const leadOrMgr = isLeaderOrManager();
-      const buyerOrMgr = isBuyerOrManager();
-
-      const grouped = {};
-      orderIds.forEach(id => {
-        const item = skus.find(s => s.id === id);
-        if (item) {
-          if (!grouped[item.vendor]) grouped[item.vendor] = [];
-          grouped[item.vendor].push({ item, order: buyOrders[id] });
-        }
-      });
-
-      container.innerHTML = '';
-      Object.keys(grouped).sort().forEach(vendor => {
-        const groupCard = document.createElement('div');
-        groupCard.className = 'vendor-group';
-
-        let itemsHtml = '';
-        grouped[vendor].forEach(({ item, order }) => {
-          const photos = Array.isArray(itemPhotos[item.id]) ? itemPhotos[item.id] : (itemPhotos[item.id] ? [itemPhotos[item.id]] : []);
-          const latestPhoto = photos[photos.length - 1];
-          const currentUnit = order.unit || item.unit || 'Units';
-          const needQty = Math.max(1, parseInt(order.qty) || 1);
-          const boughtQty = getOrderBoughtQty(order);
-          const status = getStatusInfo(needQty, boughtQty);
-
-          const unitOptions = STANDARD_UNITS.includes(currentUnit) ? STANDARD_UNITS : [currentUnit, ...STANDARD_UNITS];
-          const unitSelectHtml = unitOptions.map(u => `<option value="${escapeHtml(u)}" ${u === currentUnit ? 'selected' : ''}>${escapeHtml(u)}</option>`).join('');
-
-          const needHtml = leadOrMgr ? `
-            <div class="cl-field-group">
-              <span style="font-size:12px; font-weight:700; color:var(--text-muted);">Need:</span>
-              <button class="qty-btn" onclick="adjustOrderQty('${item.id}', -1)">−</button>
-              <input type="number" class="qty-input" value="${needQty}" min="1" oninput="onOrderQtyInput('${item.id}', this.value)" onchange="pushOrdersToCloud()" onblur="flushDeferredChecklistRender()">
-              <button class="qty-btn" onclick="adjustOrderQty('${item.id}', 1)">+</button>
-              <select class="cl-unit-select" onchange="setOrderUnit('${item.id}', this.value)" onblur="flushDeferredChecklistRender()">
-                ${unitSelectHtml}
-              </select>
-            </div>
-          ` : `
-            <div class="cl-field-group">
-              <span style="font-size:12px; font-weight:800; background:#f1f5f9; padding:4px 9px; border-radius:6px;">Need: ${needQty} ${escapeHtml(currentUnit)}</span>
-            </div>
-          `;
-
-          const boughtHtml = buyerOrMgr ? `
-            <div class="cl-field-group">
-              <span style="font-size:12px; font-weight:700; color:#047857;">Bought:</span>
-              <button class="qty-btn" onclick="adjustBoughtQty('${item.id}', -1)">−</button>
-              <input type="number" class="qty-input" id="clBoughtInput_${item.id}" value="${boughtQty}" min="0" oninput="onBoughtInput('${item.id}', this.value)" onchange="pushOrdersToCloud()" onblur="flushDeferredChecklistRender()">
-              <button class="qty-btn" onclick="adjustBoughtQty('${item.id}', 1)">+</button>
-            </div>
-          ` : '';
-
-          itemsHtml += `
-            <div class="checklist-item ${status.done ? 'done' : ''}" id="clRow_${item.id}">
-              <div class="cl-item-top">
-                <div class="cl-left">
-                  <input type="checkbox" id="clCheck_${item.id}" style="transform:scale(1.2); flex-shrink:0;" ${status.done ? 'checked' : ''} onchange="toggleDone('${item.id}')">
-                  <div class="cl-thumb" onclick="handleThumbnailClick('${item.id}')" title="${latestPhoto ? 'View Photos' : 'Add Photo'}">
-                    ${latestPhoto ? `<img src="${latestPhoto}">` : `<span>📷</span>`}
-                  </div>
-                  <div style="min-width:0; flex:1;">
-                    <div class="cl-title" onclick="openItemDetailModal('${item.id}')">${escapeHtml(item.name)}</div>
-                    <div class="cl-sub">Stock: ${item.stock} · Max: ${item.max}${order.addedBy ? ` · by ${escapeHtml(order.addedBy)}` : ''}</div>
-                  </div>
-                </div>
-                <div style="display:flex; gap:4px; align-items:center; flex-shrink:0;">
-                  <button class="btn btn-outline" style="padding:4px 8px; font-size:12px;" onclick="triggerPhoto('${item.id}')" title="Snap Photo in Store">📷</button>
-                  ${leadOrMgr ? `<button class="btn btn-outline" style="padding:4px 8px; font-size:11px; color:var(--danger);" onclick="toggleOrder('${item.id}');">✕</button>` : ''}
-                </div>
-              </div>
-
-              <div class="cl-controls-row">
-                ${needHtml}
-                ${boughtHtml}
-                <span class="cl-status-pill ${status.cls}" id="clStatus_${item.id}">${status.text}</span>
-              </div>
-
-              <input type="text" class="cl-note-input" value="${escapeHtml(order.note || '')}" placeholder="📝 Note (brand, size, or store note)..." oninput="onNoteInput('${item.id}', this.value)" onchange="pushOrdersToCloud()" onblur="flushDeferredChecklistRender()">
-            </div>
-          `;
-        });
-
-        const receiveStoreBtnHtml = buyerOrMgr ? `
-          <button class="btn btn-success" style="padding:4px 9px; font-size:11px;" data-vendor="${escapeHtml(vendor)}" onclick="openReceiveModal(this.dataset.vendor)">
-            ✅ Receive Store
-          </button>
-        ` : '';
-
-        groupCard.innerHTML = `
-          <div class="vendor-header">
-            <span>📍 ${escapeHtml(vendor)} (${grouped[vendor].length})</span>
-            ${receiveStoreBtnHtml}
-          </div>
-          ${itemsHtml}
-        `;
-        container.appendChild(groupCard);
-      });
-    }
-
-    function toggleDone(id) {
-      const order = buyOrders[id];
-      if (!order) return;
-      const need = Math.max(1, parseInt(order.qty) || 1);
-      const currentlyBought = getOrderBoughtQty(order);
-      if (currentlyBought >= need) {
-        order.bought = 0;
-        order.done = false;
-      } else {
-        order.bought = need;
-        order.done = true;
-      }
-      pushOrdersToCloud();
-      renderChecklist();
-    }
-
-    function adjustOrderQty(id, delta) {
-      if (!isLeaderOrManager() || !buyOrders[id]) return;
-      buyOrders[id].qty = Math.max(1, (parseInt(buyOrders[id].qty) || 1) + delta);
-      const bought = getOrderBoughtQty(buyOrders[id]);
-      buyOrders[id].done = bought >= buyOrders[id].qty;
-      pushOrdersToCloud();
-      renderChecklist();
-    }
-
-    function onOrderQtyInput(id, val) {
-      if (!isLeaderOrManager() || !buyOrders[id]) return;
-      const need = Math.max(1, parseInt(val) || 1);
-      buyOrders[id].qty = need;
-      const bought = getOrderBoughtQty(buyOrders[id]);
-      const status = getStatusInfo(need, bought);
-      buyOrders[id].done = status.done;
-      updateChecklistRowStatusInPlace(id, status);
-    }
-
-    function adjustBoughtQty(id, delta) {
-      if (!isBuyerOrManager() || !buyOrders[id]) return;
-      const currentBought = getOrderBoughtQty(buyOrders[id]);
-      const nextBought = Math.max(0, currentBought + delta);
-      const need = Math.max(1, parseInt(buyOrders[id].qty) || 1);
-      buyOrders[id].bought = nextBought;
-      buyOrders[id].done = nextBought >= need;
-      pushOrdersToCloud();
-      renderChecklist();
-    }
-
-    function onBoughtInput(id, val) {
-      if (!isBuyerOrManager() || !buyOrders[id]) return;
-      const bought = Math.max(0, parseInt(val) || 0);
-      const need = Math.max(1, parseInt(buyOrders[id].qty) || 1);
-      buyOrders[id].bought = bought;
-      const status = getStatusInfo(need, bought);
-      buyOrders[id].done = status.done;
-      updateChecklistRowStatusInPlace(id, status);
-    }
-
-    function updateChecklistRowStatusInPlace(id, status) {
-      const pill = document.getElementById(`clStatus_${id}`);
-      const chk = document.getElementById(`clCheck_${id}`);
-      const row = document.getElementById(`clRow_${id}`);
-      if (pill) {
-        pill.className = `cl-status-pill ${status.cls}`;
-        pill.innerText = status.text;
-      }
-      if (chk) chk.checked = status.done;
-      if (row) row.classList.toggle('done', status.done);
-    }
-
-    function setOrderUnit(id, unit) {
-      if (!isLeaderOrManager() || !buyOrders[id]) return;
-      buyOrders[id].unit = unit;
-      pushOrdersToCloud();
-    }
-
-    function onNoteInput(id, note) {
-      if (buyOrders[id]) {
-        buyOrders[id].note = note;
-      }
-    }
-
-    function clearFulfilled() {
-      if (!isLeaderOrManager()) return;
-      const doneIds = Object.keys(buyOrders).filter(id => buyOrders[id] && getStatusInfo(Math.max(1, parseInt(buyOrders[id].qty) || 1), getOrderBoughtQty(buyOrders[id])).done);
-      if (doneIds.length === 0) {
-        showToast('No fulfilled items to clear.', 'info');
-        return;
-      }
-      doneIds.forEach(id => delete buyOrders[id]);
-      pushOrdersToCloud();
-      renderCatalog();
-      renderChecklist();
-      showToast('Fulfilled items cleared', 'info');
-    }
-
-    function clearAllChecklist() {
-      if (!isManager()) {
-        showToast('Manager access required to clear all.', 'error');
-        return;
-      }
-      const activeIds = Object.keys(buyOrders).filter(id => skus.some(s => s.id === id));
-      if (activeIds.length === 0) {
-        showToast('Checklist is already empty.', 'info');
-        return;
-      }
-      if (!confirm('Clear ALL items from the buying checklist?')) return;
-      buyOrders = {};
-      pushOrdersToCloud();
-      renderCatalog();
-      renderChecklist();
-      showToast('Buying checklist cleared', 'info');
-    }
-
-    /* 9. Receive Bought Items into Stock */
-    function openReceiveModal(targetVendor = null) {
-      if (!isBuyerOrManager()) return;
-      const orderIds = Object.keys(buyOrders).filter(id => skus.some(s => s.id === id));
-      pendingReceiveSummary = [];
-
-      orderIds.forEach(id => {
-        const item = skus.find(s => s.id === id);
-        if (!item) return;
-        if (targetVendor && item.vendor !== targetVendor) return;
-        const order = buyOrders[id];
-        const need = Math.max(1, parseInt(order.qty) || 1);
-        const bought = getOrderBoughtQty(order);
-        if (bought > 0) {
-          pendingReceiveSummary.push({
-            id,
-            name: item.name,
-            vendor: item.vendor,
-            unit: order.unit || item.unit || 'Units',
-            oldStock: item.stock,
-            bought,
-            need,
-            newStock: item.stock + bought,
-            remaining: Math.max(0, need - bought),
-            note: order.note || ''
-          });
-        }
-      });
-
-      if (pendingReceiveSummary.length === 0) {
-        showToast('Enter a Bought quantity (or check off an item) first.', 'warning');
-        return;
-      }
-
-      document.getElementById('receiveModalTitle').innerText = targetVendor
-        ? `✅ Receive ${targetVendor} Items`
-        : '✅ Receive Bought Items into Stock';
-
-      const list = document.getElementById('receivePreviewList');
-      list.innerHTML = '';
-      pendingReceiveSummary.forEach(entry => {
-        const row = document.createElement('div');
-        row.className = 'list-row-card';
-        const remainBadge = entry.remaining > 0
-          ? `<span style="font-size:11px; color:#92400e; background:var(--warning-light); padding:2px 6px; border-radius:6px; font-weight:700;">${entry.remaining} left on list</span>`
-          : `<span style="font-size:11px; color:#065f46; background:var(--success-light); padding:2px 6px; border-radius:6px; font-weight:700;">Fulfilled</span>`;
-
-        row.innerHTML = `
-          <div style="min-width:0;">
-            <div style="font-size:13px; font-weight:800;">${escapeHtml(entry.name)}</div>
-            <div style="font-size:11px; color:var(--text-muted);">Stock: ${entry.oldStock} → <strong>${entry.newStock} ${escapeHtml(entry.unit)}</strong> (+${entry.bought})</div>
-          </div>
-          ${remainBadge}
-        `;
-        list.appendChild(row);
-      });
-
-      document.getElementById('receiveModal').style.display = 'flex';
-    }
-
-    async function confirmReceiveToStock() {
-      if (!isBuyerOrManager() || pendingReceiveSummary.length === 0) return;
-      const sendTg = document.getElementById('receiveAlsoTelegram').checked;
-      const now = Date.now();
-      let partialCount = 0;
-
-      pendingReceiveSummary.forEach(entry => {
-        const item = skus.find(s => s.id === entry.id);
-        if (item) {
-          item.stock = item.stock + entry.bought;
-          item.updatedBy = currentUser.name;
-          item.updatedAt = now;
-        }
-        if (entry.remaining > 0 && buyOrders[entry.id]) {
-          buyOrders[entry.id].qty = entry.remaining;
-          buyOrders[entry.id].bought = 0;
-          buyOrders[entry.id].done = false;
-          partialCount++;
-        } else {
-          delete buyOrders[entry.id];
-        }
-      });
-
-      pushSkusToCloud();
-      pushOrdersToCloud();
-      closeModal('receiveModal');
-      renderCatalog();
-      renderChecklist();
-
-      if (sendTg) {
-        await sendBuyerReceiptTelegram(pendingReceiveSummary);
-      }
-
-      const msg = partialCount > 0
-        ? `Added ${pendingReceiveSummary.length} items to stock (${partialCount} partial kept on checklist)`
-        : `Added ${pendingReceiveSummary.length} items to stock!`;
-      showToast(msg, 'success', 4000);
-      pendingReceiveSummary = [];
-    }
-
-    /* 10. Telegram Dispatch (Orders + Buyer Reports) */
-    async function dispatchToTelegram() {
-      if (!isLeaderOrManager()) return;
-      const orderIds = Object.keys(buyOrders).filter(id => skus.some(s => s.id === id));
-      if (orderIds.length === 0) {
-        showToast('Checklist is empty.', 'warning');
-        return;
-      }
-
-      if (!botToken || !chatId) {
-        showToast('Telegram Bot Token and Chat ID are missing.', 'error');
-        return;
-      }
-
-      const submitter = currentUser ? currentUser.name : 'Staff';
-      const sendBtn = document.getElementById('sendTelegramBtn');
-      if (sendBtn) {
-        sendBtn.innerText = '⏳ Sending...';
-        sendBtn.disabled = true;
-      }
-
-      const grouped = {};
-      orderIds.forEach(id => {
-        const item = skus.find(s => s.id === id);
-        if (item) {
-          if (!grouped[item.vendor]) grouped[item.vendor] = [];
-          grouped[item.vendor].push({ item, order: buyOrders[id] });
-        }
-      });
-
-      const now = new Date();
-      const timeStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' +
-                      now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-
-      let text = `🛒 *Swirla Café — Buy Order*\n`;
-      text += `👤 *Submitted by:* ${escapeTgMarkdown(submitter)}\n`;
-      text += `📅 *${timeStr}*\n\n`;
-
-      Object.keys(grouped).sort().forEach(vendor => {
-        text += `📍 *${escapeTgMarkdown(vendor)}*\n`;
-        grouped[vendor].forEach(({ item, order }) => {
-          const unit = order.unit || item.unit || 'Units';
-          const need = Math.max(1, parseInt(order.qty) || 1);
-          text += `• *${escapeTgMarkdown(item.name)}* — *Qty: ${need} ${escapeTgMarkdown(unit)}* (Stock: ${item.stock})\n`;
-          if (order.note && order.note.trim()) {
-            text += `   📝 _${escapeTgMarkdown(order.note.trim())}_\n`;
-          }
-        });
-        text += `\n`;
-      });
-
-      text += `_Sent via Swirla Operations Console_`;
-
-      try {
-        const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' })
-        });
-        const data = await response.json();
-        if (data.ok) {
-          showToast(`Order dispatched by ${submitter}!`, 'success', 4000);
-        } else {
-          showToast(`Telegram Error: ${data.description}`, 'error', 5000);
-        }
-      } catch (err) {
-        showToast('Network error while dispatching to Telegram.', 'error');
-      } finally {
-        if (sendBtn) {
-          sendBtn.innerText = '✈️ Send Order';
-          sendBtn.disabled = false;
-        }
-      }
-    }
-
-    async function dispatchBuyerReport() {
-      if (!isBuyerOrManager()) return;
-      const orderIds = Object.keys(buyOrders).filter(id => skus.some(s => s.id === id));
-      if (orderIds.length === 0) {
-        showToast('Checklist is empty.', 'warning');
-        return;
-      }
-
-      const btn = document.getElementById('sendBuyerReportBtn');
-      if (btn) {
-        btn.innerText = '⏳ Sending...';
-        btn.disabled = true;
-      }
-
-      const grouped = {};
-      orderIds.forEach(id => {
-        const item = skus.find(s => s.id === id);
-        if (item) {
-          if (!grouped[item.vendor]) grouped[item.vendor] = [];
-          grouped[item.vendor].push({ item, order: buyOrders[id] });
-        }
-      });
-
-      const now = new Date();
-      const timeStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' +
-                      now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-
-      let text = `🚚 *Swirla Café — Buyer Run Update*\n`;
-      text += `👤 *Buyer:* ${escapeTgMarkdown(currentUser.name)}\n`;
-      text += `📅 *${timeStr}*\n\n`;
-
-      Object.keys(grouped).sort().forEach(vendor => {
-        text += `📍 *${escapeTgMarkdown(vendor)}*\n`;
-        grouped[vendor].forEach(({ item, order }) => {
-          const unit = order.unit || item.unit || 'Units';
-          const need = Math.max(1, parseInt(order.qty) || 1);
-          const bought = getOrderBoughtQty(order);
-          if (bought >= need) {
-            text += `✅ *${escapeTgMarkdown(item.name)}* — Bought *${bought}/${need} ${escapeTgMarkdown(unit)}*\n`;
-          } else if (bought > 0) {
-            text += `⚠️ *${escapeTgMarkdown(item.name)}* — Partial *${bought}/${need} ${escapeTgMarkdown(unit)}* (Short ${need - bought})\n`;
-          } else {
-            text += `❌ *${escapeTgMarkdown(item.name)}* — Not Bought (Need ${need} ${escapeTgMarkdown(unit)})\n`;
-          }
-          if (order.note && order.note.trim()) {
-            text += `   📝 _${escapeTgMarkdown(order.note.trim())}_\n`;
-          }
-        });
-        text += `\n`;
-      });
-
-      text += `_Sent via Swirla Operations Console_`;
-
-      try {
-        const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' })
-        });
-        const data = await response.json();
-        if (data.ok) {
-          showToast('Buyer report sent to Telegram!', 'success', 4000);
-        } else {
-          showToast(`Telegram Error: ${data.description}`, 'error', 5000);
-        }
-      } catch (err) {
-        showToast('Network error sending buyer report.', 'error');
-      } finally {
-        if (btn) {
-          btn.innerText = '🚚 Bought Report';
-          btn.disabled = false;
-        }
-      }
-    }
-
-    async function sendBuyerReceiptTelegram(entries) {
-      if (!botToken || !chatId || entries.length === 0) return;
-      const now = new Date();
-      const timeStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' +
-                      now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-
-      let text = `📦 *Swirla Café — Received into Stock*\n`;
-      text += `👤 *Received by:* ${escapeTgMarkdown(currentUser.name)}\n`;
-      text += `📅 *${timeStr}*\n\n`;
-
-      entries.forEach(entry => {
-        const statusText = entry.remaining > 0
-          ? `⚠️ *+${entry.bought} ${escapeTgMarkdown(entry.unit)}* (Short ${entry.remaining} — kept on list)`
-          : `✅ *+${entry.bought} ${escapeTgMarkdown(entry.unit)}*`;
-        text += `• *${escapeTgMarkdown(entry.name)}* (${escapeTgMarkdown(entry.vendor)}) — ${statusText} → Stock: *${entry.newStock}*\n`;
-      });
-
-      text += `\n_Sent via Swirla Operations Console_`;
-
-      try {
-        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' })
-        });
-      } catch (err) {}
-    }
-
-    /* 11. Modal Helpers & SKU Operations */
-    function closeModal(modalId) {
-      document.getElementById(modalId).style.display = 'none';
-      if (modalId === 'itemDetailModal') {
-        activeDetailSkuId = null;
-      }
-    }
-
-    function handleTelegramBadgeClick() {
-      if (isManager()) {
-        openTelegramModal();
-      } else {
-        showToast('Telegram group alerts are active.', 'info');
-      }
-    }
-
-    function openTelegramModal() {
-      if (!isManager()) return;
-      document.getElementById('cfgBotToken').value = botToken;
-      document.getElementById('cfgChatId').value = chatId;
-      document.getElementById('telegramModal').style.display = 'flex';
-    }
-
-    function saveTelegramSettings() {
-      if (!isManager()) return;
-      botToken = document.getElementById('cfgBotToken').value.trim();
-      chatId = document.getElementById('cfgChatId').value.trim();
-      localStorage.setItem('swirla_bot_token', botToken);
-      localStorage.setItem('swirla_chat_id', chatId);
-      closeModal('telegramModal');
-      showToast('Telegram settings saved', 'success');
-    }
-
-    function openSkuModal(id = null) {
-      if (!isLeaderOrManager()) return;
-      const modal = document.getElementById('skuModal');
-      const title = document.getElementById('skuModalTitle');
-      const idField = document.getElementById('editSkuId');
-      const nameField = document.getElementById('editSkuName');
-      const vendorField = document.getElementById('editSkuVendor');
-      const catField = document.getElementById('editSkuCategory');
-      const unitField = document.getElementById('editSkuUnit');
-      const minField = document.getElementById('editSkuMin');
-      const maxField = document.getElementById('editSkuMax');
-      const deleteBtn = document.getElementById('deleteSkuBtn');
-
-      if (id) {
-        const item = skus.find(s => s.id === id);
-        if (!item) return;
-        title.innerText = 'Edit SKU Parameters';
-        idField.value = item.id;
-        nameField.value = item.name;
-        vendorField.value = item.vendor;
-        catField.value = item.cat;
-        unitField.value = item.unit || '';
-        minField.value = item.min;
-        maxField.value = item.max;
-        deleteBtn.style.display = isManager() ? 'inline-flex' : 'none';
-      } else {
-        title.innerText = 'Add New SKU';
-        idField.value = '';
-        nameField.value = '';
-        vendorField.value = '';
-        catField.value = '';
-        unitField.value = '';
-        minField.value = 0;
-        maxField.value = 0;
-        deleteBtn.style.display = 'none';
-      }
-      modal.style.display = 'flex';
-    }
-
-    function saveSkuModal() {
-      if (!isLeaderOrManager()) return;
-      const id = document.getElementById('editSkuId').value;
-      const name = document.getElementById('editSkuName').value.trim();
-      const vendor = document.getElementById('editSkuVendor').value.trim();
-      const cat = document.getElementById('editSkuCategory').value.trim();
-      const unit = document.getElementById('editSkuUnit').value.trim();
-      const min = Math.max(0, parseInt(document.getElementById('editSkuMin').value) || 0);
-      const max = Math.max(0, parseInt(document.getElementById('editSkuMax').value) || 0);
-
-      if (!name || !vendor || !cat) {
-        showToast('Please fill out Name, Vendor, and Category.', 'warning');
-        return;
-      }
-
-      if (id) {
-        const item = skus.find(s => s.id === id);
-        if (item) {
-          item.name = name;
-          item.vendor = vendor;
-          item.cat = cat;
-          if (unit) item.unit = unit;
-          else delete item.unit;
-          item.min = min;
-          item.max = max;
-          item.updatedBy = currentUser.name;
-          item.updatedAt = Date.now();
-          showToast(`Updated ${name}`, 'success');
-        }
-      } else {
-        const newSku = {
-          id: Date.now().toString(),
-          name, vendor, cat, min, max, stock: 0,
-          updatedBy: currentUser.name,
-          updatedAt: Date.now()
-        };
-        if (unit) newSku.unit = unit;
-        skus.unshift(newSku);
-        showToast(`Added ${name}`, 'success');
-      }
-
-      pushSkusToCloud();
-      populateFilters();
-      renderCatalog();
-      renderChecklist();
-      refreshOpenDetailModal();
-      closeModal('skuModal');
-    }
-
-    function deleteCurrentSku() {
-      if (!isManager()) {
-        showToast('Only Management can delete SKUs.', 'error');
-        return;
-      }
-      const id = document.getElementById('editSkuId').value;
-      if (!id) return;
-      const item = skus.find(s => s.id === id);
-      if (!item) return;
-
-      if (!confirm(`Delete "${item.name}" permanently from the catalog for all staff?`)) return;
-
-      skus = skus.filter(s => s.id !== id);
-      pushSkusToCloud();
-
-      if (buyOrders[id]) {
-        delete buyOrders[id];
-        pushOrdersToCloud();
-      }
-      if (itemPhotos[id]) {
-        delete itemPhotos[id];
-        pushSkuPhotosToCloud(id);
-      }
-
-      closeModal('skuModal');
-      if (activeDetailSkuId === id) closeModal('itemDetailModal');
-
-      populateFilters();
-      renderCatalog();
-      renderChecklist();
-      showToast(`Deleted ${item.name}`, 'info');
-    }
-
-    // --- Item Detail & Photo Gallery Functions ---
-    function openItemDetailModal(id) {
-      const item = skus.find(s => s.id === id);
-      if (!item) return;
-      activeDetailSkuId = id;
-
-      const unitLabel = item.unit || 'Units';
-      document.getElementById('detailSkuVendor').innerText = item.vendor;
-      document.getElementById('detailSkuName').innerText = item.name;
-      document.getElementById('detailSkuCat').innerText = item.cat;
-      document.getElementById('detailSkuUpdated').innerText = item.updatedBy
-        ? `Last updated by ${item.updatedBy}${item.updatedAt ? ' · ' + formatShortTime(item.updatedAt) : ''}`
-        : '';
-      document.getElementById('detailSkuStock').innerText = `${item.stock} ${unitLabel}`;
-      document.getElementById('detailSkuMin').innerText = item.min;
-      document.getElementById('detailSkuMax').innerText = item.max;
-
-      const leadOrMgr = isLeaderOrManager();
-      document.getElementById('detailActionRow').style.display = leadOrMgr ? 'flex' : 'none';
-      if (leadOrMgr) updateDetailOrderButton(id);
-
-      renderDetailPhotos();
-      document.getElementById('itemDetailModal').style.display = 'flex';
-    }
-
-    function updateDetailOrderButton(id) {
-      const btn = document.getElementById('detailOrderBtn');
-      const isOrdered = buyOrders[id] !== undefined;
-      btn.className = `btn ${isOrdered ? 'btn-ordered' : 'btn-primary'}`;
-      btn.innerText = isOrdered ? '✓ In Checklist' : '+ Order';
-    }
-
-    function editFromDetail() {
-      if (!isLeaderOrManager() || !activeDetailSkuId) return;
-      const id = activeDetailSkuId;
-      closeModal('itemDetailModal');
-      openSkuModal(id);
-    }
-
-    function toggleOrderFromDetail() {
-      if (!isLeaderOrManager() || !activeDetailSkuId) return;
-      toggleOrder(activeDetailSkuId);
-    }
-
-    function renderDetailPhotos() {
-      const id = activeDetailSkuId;
-      if (!id) return;
-      const container = document.getElementById('detailGalleryList');
-      const photos = Array.isArray(itemPhotos[id]) ? itemPhotos[id] : (itemPhotos[id] ? [itemPhotos[id]] : []);
-      const mgr = isManager();
-
-      document.getElementById('detailPhotoCount').innerText = photos.length;
-      const addBtn = document.getElementById('detailAddBtn');
-      addBtn.style.display = (photos.length >= 3) ? 'none' : 'inline-flex';
-
-      if (photos.length === 0) {
-        container.innerHTML = `
-          <div style="text-align:center; padding:24px 10px; background:#f8fafc; border-radius:10px; border:1px dashed var(--border); color:var(--text-muted); font-size:13px;">
-            No reference photos attached yet.<br>Tap <strong>📷 + Add Photo</strong> above to take one.
-          </div>
-        `;
-        return;
-      }
-
-      container.innerHTML = '';
-      photos.forEach((photoUrl, index) => {
-        const card = document.createElement('div');
-        card.style.cssText = 'position:relative; background:#0f172a; border-radius:10px; overflow:hidden; border:1px solid var(--border); box-shadow:0 2px 8px rgba(0,0,0,0.15);';
-        const deleteBtnHtml = mgr
-          ? `<button class="btn" style="position:absolute; top:8px; right:8px; background:#dc2626; color:#fff; padding:5px 10px; font-size:12px;" onclick="deletePhoto('${id}', ${index})">🗑️ Delete Photo</button>`
-          : '';
-
-        card.innerHTML = `
-          <img src="${photoUrl}" style="width:100%; max-height:380px; object-fit:contain; display:block; background:#0f172a;">
-          <div style="position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.7); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px;">
-            Photo ${index + 1} of ${photos.length}
-          </div>
-          ${deleteBtnHtml}
-        `;
-        container.appendChild(card);
-      });
-    }
-
-    function deletePhoto(id, photoIndex) {
-      if (!isManager()) {
-        showToast('Only Management can delete photos.', 'error');
-        return;
-      }
-      if (!confirm('Delete this photo? This cannot be undone.')) return;
-      const photos = Array.isArray(itemPhotos[id]) ? itemPhotos[id] : (itemPhotos[id] ? [itemPhotos[id]] : []);
-      if (photos.length > 0) {
-        photos.splice(photoIndex, 1);
-        if (photos.length === 0) {
-          delete itemPhotos[id];
-        } else {
-          itemPhotos[id] = photos;
-        }
-        renderDetailPhotos();
-        renderCatalog();
-        if (!isEditingChecklist()) renderChecklist();
-        pushSkuPhotosToCloud(id)
-          .then(() => showToast('Photo deleted on all devices', 'info'))
-          .catch(() => showToast('Cloud delete failed. Check connection.', 'error'));
-      }
-    }
-
-    function triggerPhotoFromDetail() {
-      if (!activeDetailSkuId) return;
-      triggerPhoto(activeDetailSkuId);
-    }
-
-    window.onload = function() {
-      populateFilters();
-      renderCatalog();
-    };
-  </script>
+  <!-- Application Logic -->
+  <script src="app.js?v=3"></script>
 </body>
 </html>
