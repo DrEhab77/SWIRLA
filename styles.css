@@ -1350,86 +1350,61 @@ body {
   flex-direction: column;
   gap: 7px;
 }
+.cl-verify-box.verified { background: #ECFDF5; border-color: #A7F3D0; }
+.cl-verify-box.mismatch { background: #FEF2F2; border-color: #FECACA; }
+.cl-verify-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.cl-verify-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; width: 100%; }
+.cl-verify-actions .btn { flex: 1; padding: 6px 8px; font-size: 11.5px; }
+.btn-verify-done { background: var(--success) !important; color: #fff !important; border-color: var(--success) !important; }
+.cl-mismatch-pill { font-size: 11px; font-weight: 800; color: var(--danger); background: var(--danger-light); border: 1px solid rgba(220,38,38,0.25); padding: 3px 8px; border-radius: 7px; display: inline-flex; align-items: center; gap: 4px; }
+.cl-match-pill { font-size: 11px; font-weight: 800; color: #065F46; background: var(--success-light); padding: 3px 8px; border-radius: 7px; display: inline-flex; align-items: center; gap: 4px; }
+.audit-banner { padding: 9px 12px; border-radius: 10px; font-size: 12px; font-weight: 700; line-height: 1.35; }
+.audit-banner.ok { background: var(--success-light); color: #065F46; border: 1px solid #A7F3D0; }
+.audit-banner.alert { background: var(--danger-light); color: #991B1B; border: 1px solid #FCA5A5; }
 
-.cl-verify-box.verified {
-  background: #ECFDF5;
-  border-color: #A7F3D0;
-}
-
-.cl-verify-box.mismatch {
-  background: #FEF2F2;
-  border-color: #FECACA;
-}
-
-.cl-verify-top {
+/* ---------------- Editable Order Quantity Pill on Catalog & Detail ---------------- */
+.order-action-group {
+  flex: 1.45;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.cl-verify-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-wrap: wrap;
-  width: 100%;
-}
-
-.cl-verify-actions .btn {
-  flex: 1;
-  padding: 6px 8px;
-  font-size: 11.5px;
-}
-
-.btn-verify-done {
-  background: var(--success) !important;
-  color: #fff !important;
-  border-color: var(--success) !important;
-}
-
-.cl-mismatch-pill {
-  font-size: 11px;
-  font-weight: 800;
-  color: var(--danger);
-  background: var(--danger-light);
-  border: 1px solid rgba(220, 38, 38, 0.25);
-  padding: 3px 8px;
-  border-radius: 7px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.cl-match-pill {
-  font-size: 11px;
-  font-weight: 800;
-  color: #065F46;
-  background: var(--success-light);
-  padding: 3px 8px;
-  border-radius: 7px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.audit-banner {
-  padding: 9px 12px;
+  align-items: stretch;
   border-radius: 10px;
+  overflow: hidden;
+  border: 1.5px solid var(--primary);
+  background: var(--primary);
+}
+.order-action-group.ordered {
+  border-color: var(--border);
+  background: var(--surface-soft);
+}
+.order-qty-input {
+  width: 46px;
+  min-width: 40px;
+  border: none;
+  border-right: 1px solid rgba(217, 107, 39, 0.25);
+  background: #FFFFFF;
+  color: var(--text);
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 5px 3px;
+  outline: none;
+}
+.order-action-group.ordered .order-qty-input {
+  border-right-color: var(--border);
+  color: var(--primary-dark);
+}
+.btn-order-submit {
+  flex: 1;
+  border: none;
+  background: var(--primary);
+  color: #FFFFFF;
   font-size: 12px;
-  font-weight: 700;
-  line-height: 1.35;
+  font-weight: 800;
+  padding: 7px 6px;
+  cursor: pointer;
+  white-space: nowrap;
 }
-
-.audit-banner.ok {
-  background: var(--success-light);
-  color: #065F46;
-  border: 1px solid #A7F3D0;
-}
-
-.audit-banner.alert {
-  background: var(--danger-light);
-  color: #991B1B;
-  border: 1px solid #FCA5A5;
+.order-action-group.ordered .btn-order-submit {
+  background: var(--surface-soft);
+  color: var(--text-muted);
 }
