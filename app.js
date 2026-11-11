@@ -1,12 +1,11 @@
 /* ============================================================================
-   SWIRLA OPS — APPLICATION ENGINE (v3 White-Label Edition)
+   SWIRLA OPS — APPLICATION ENGINE (v4 White-Label + Cloud Auth Edition)
    ============================================================================ */
 
 const CFG = window.SWIRLA_CONFIG || {};
 const ROOT = CFG.firebaseRoot || 'swirla';
 const PREFIX = CFG.storagePrefix || 'swirla_';
 
-// Apply white-label branding & logo colors from data.js
 (function applyBrandConfig() {
   const t = CFG.theme || {};
   const rootStyle = document.documentElement.style;
@@ -34,10 +33,15 @@ const PREFIX = CFG.storagePrefix || 'swirla_';
 })();
 
 /* 1. Firebase Initialization */
-firebase.initializeApp({
-  databaseURL: CFG.firebaseDatabaseURL || 'https://swirla-inventory-default-rtdb.firebaseio.com'
-});
+const fbConfig = (CFG.firebaseConfig && CFG.firebaseConfig.apiKey)
+  ? CFG.firebaseConfig
+  : { databaseURL: CFG.firebaseDatabaseURL || 'https://swirla-inventory-default-rtdb.firebaseio.com' };
+firebase.initializeApp(fbConfig);
 const db = firebase.database();
+const auth = (CFG.firebaseConfig && CFG.firebaseConfig.apiKey && typeof firebase.auth === 'function')
+  ? firebase.auth()
+  : null;
+let realtimeListenersAttached = false;
 
 /* 2. State & Constants */
 const DEFAULT_ACCOUNTS = CFG.defaultAccounts || [
@@ -175,7 +179,40 @@ function queueStockHistoryLog(item, oldVal, newVal) {
   }, 1200);
 }
 
-/* 5. Auth & PIN Logic */
+/* 5. Store Cloud Auth & Staff PIN Logic */
+async function submitCloudLogin() {
+  if (!auth) return;
+  const email = document.getElementById('cloudLoginEmail').value.trim();
+  const pass = document.getElementById('cloudLoginPassword').value;
+  const errEl = document.getElementById('cloudAuthError');
+  const btn = document.getElementById('cloudLoginBtn');
+  if (!email || !pass) { errEl.innerText = 'Enter your store email and password.'; return; }
+
+  errEl.innerText = '';
+  btn.disabled = true;
+  btn.innerText = '⏳ Unlocking...';
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+    document.getElementById('cloudLoginPassword').value = '';
+  } catch (err) {
+    errEl.innerText = (err && err.code === 'auth/too-many-requests')
+      ? 'Too many attempts. Wait a minute and try again.'
+      : 'Invalid store email or password.';
+  } finally {
+    btn.disabled = false;
+    btn.innerText = '🔐 Unlock Store Console';
+  }
+}
+
+async function logoutCloudStore() {
+  if (!auth || !confirm('Lock this device? Next shift will need the Store Email & Password to reconnect.')) return;
+  localStorage.removeItem(PREFIX + 'session');
+  localStorage.removeItem(PREFIX + 'skus');
+  localStorage.removeItem(PREFIX + 'orders');
+  await auth.signOut();
+  location.reload();
+}
+
 function renderAuthProfiles() {
   const list = document.getElementById('authProfileList');
   if (!list) return;
@@ -315,7 +352,6 @@ function applyRoleUI() {
   document.getElementById('tabReports').style.display = leadOrMgr ? 'flex' : 'none';
   document.getElementById('btnManageListsShortcut').style.display = leadOrMgr ? 'inline-flex' : 'none';
 
-  // Single-line action row adjustments
   document.getElementById('btnAddNewWrap').style.display = leadOrMgr ? 'block' : 'none';
   document.getElementById('catalogActionsRow').classList.toggle('no-add', !leadOrMgr);
   document.getElementById('addMenuMemberBtn').style.display = mgr ? 'flex' : 'none';
@@ -324,7 +360,6 @@ function applyRoleUI() {
   document.getElementById('btnClearAll').style.display = mgr ? 'inline-flex' : 'none';
   document.getElementById('checkoutUserDisplay').innerText = `${currentUser.name} (${roleLabel(currentUser.role)})`;
 
-  // Receive Stock locked strictly to Leaders & Managers; Buyers send Bought Report
   const checkoutActions = document.getElementById('checkoutActions');
   let actionHtml = '';
   if (leadOrMgr) {
@@ -355,7 +390,6 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Close + Add New dropdown when tapping outside
 document.addEventListener('click', e => {
   const wrap = document.getElementById('btnAddNewWrap');
   const menu = document.getElementById('addNewMenu');
@@ -364,103 +398,169 @@ document.addEventListener('click', e => {
   }
 });
 
-/* 6. Firebase Realtime Listeners */
-db.ref(`${ROOT}/accounts`).on('value', snap => {
-  const data = snap.val();
-  const parsed = Array.isArray(data) ? data : (data ? Object.values(data) : null);
-  if (parsed && parsed.length > 0) accounts = parsed;
-  else {
-    accounts = JSON.parse(JSON.stringify(DEFAULT_ACCOUNTS));
-    db.ref(`${ROOT}/accounts`).set(accounts);
-  }
-  renderAuthProfiles();
-  renderAccountsModalList();
-  populateHistoryUserFilter();
-  restoreSavedSession();
-});
+/* 6. Firebase Auth Gate & Realtime Listeners */
+let photoRenderTimer = null;
 
-db.ref(`${ROOT}/vendors`).on('value', snap => {
-  const data = snap.val();
-  const parsed = Array.isArray(data) ? data : (data ? Object.values(data) : null);
-  if (parsed && parsed.length > 0) {
-    vendors = uniqueSorted([...parsed, ...skus.map(s => s.vendor)]);
-  } else {
-    vendors = uniqueSorted([...(CFG.defaultVendors || []), ...skus.map(s => s.vendor)]);
-    if (vendors.length) db.ref(`${ROOT}/vendors`).set(vendors);
-  }
-  populateFilters();
-  if (document.getElementById('taxonomyModal').style.display === 'flex') renderTaxonomyList();
-});
-
-db.ref(`${ROOT}/categories`).on('value', snap => {
-  const data = snap.val();
-  const parsed = Array.isArray(data) ? data : (data ? Object.values(data) : null);
-  if (parsed && parsed.length > 0) {
-    categories = uniqueSorted([...parsed, ...skus.map(s => s.cat)]);
-  } else {
-    categories = uniqueSorted([...(CFG.defaultCategories || []), ...skus.map(s => s.cat)]);
-    if (categories.length) db.ref(`${ROOT}/categories`).set(categories);
-  }
-  populateFilters();
-  if (document.getElementById('taxonomyModal').style.display === 'flex') renderTaxonomyList();
-});
-
-db.ref(`${ROOT}/skus`).on('value', snap => {
-  const data = snap.val();
-  const parsed = Array.isArray(data) ? data : (data ? Object.values(data) : null);
-  if (parsed && parsed.length > 0) {
-    skus = parsed;
-    localStorage.setItem(PREFIX + 'skus', JSON.stringify(skus));
-    vendors = uniqueSorted([...vendors, ...skus.map(s => s.vendor)]);
-    categories = uniqueSorted([...categories, ...skus.map(s => s.cat)]);
-    populateFilters();
+function schedulePhotoRender(changedSkuId) {
+  if (activeDetailSkuId === changedSkuId) renderDetailPhotos();
+  clearTimeout(photoRenderTimer);
+  photoRenderTimer = setTimeout(() => {
     renderCatalog();
     if (!isEditingChecklist()) renderChecklist();
     else deferredChecklistRender = true;
     if (currentView === 'reports') renderReports();
-    refreshOpenDetailModal();
-  } else if (INITIAL_SKUS.length > 0) {
-    skus = JSON.parse(JSON.stringify(INITIAL_SKUS));
-    db.ref(`${ROOT}/skus`).set(skus);
-  }
-});
+  }, 60);
+}
 
-db.ref(`${ROOT}/orders`).on('value', snap => {
-  buyOrders = snap.val() || {};
-  localStorage.setItem(PREFIX + 'orders', JSON.stringify(buyOrders));
-  renderCatalog();
-  if (!isEditingChecklist()) renderChecklist();
-  else deferredChecklistRender = true;
-  if (activeDetailSkuId && document.getElementById('itemDetailModal').style.display === 'flex') {
-    updateDetailOrderButton(activeDetailSkuId);
-  }
-});
+function attachRealtimeListeners() {
+  if (realtimeListenersAttached) return;
+  realtimeListenersAttached = true;
 
-db.ref(`${ROOT}/backups`).on('value', snap => {
-  cloudBackups = snap.val() || {};
-  if (document.getElementById('backupsModal').style.display === 'flex') renderCloudBackupsList();
-});
+  db.ref(`${ROOT}/accounts`).on('value', snap => {
+    const data = snap.val();
+    const parsed = Array.isArray(data) ? data : (data ? Object.values(data) : null);
+    if (parsed && parsed.length > 0) accounts = parsed;
+    else {
+      accounts = JSON.parse(JSON.stringify(DEFAULT_ACCOUNTS));
+      db.ref(`${ROOT}/accounts`).set(accounts);
+    }
+    renderAuthProfiles();
+    renderAccountsModalList();
+    populateHistoryUserFilter();
+    restoreSavedSession();
+  });
 
-db.ref(`${ROOT}/settings/telegram`).on('value', snap => {
-  const val = snap.val();
-  if (val && (val.botToken || val.chatId)) {
-    if (val.botToken) { botToken = val.botToken; localStorage.setItem(PREFIX + 'bot_token', botToken); }
-    if (val.chatId) { chatId = val.chatId; localStorage.setItem(PREFIX + 'chat_id', chatId); }
-  }
-  updateTelegramBadgeUI();
-});
+  db.ref(`${ROOT}/vendors`).on('value', snap => {
+    const data = snap.val();
+    const parsed = Array.isArray(data) ? data : (data ? Object.values(data) : null);
+    if (parsed && parsed.length > 0) {
+      vendors = uniqueSorted([...parsed, ...skus.map(s => s.vendor)]);
+    } else {
+      vendors = uniqueSorted([...(CFG.defaultVendors || []), ...skus.map(s => s.vendor)]);
+      if (vendors.length) db.ref(`${ROOT}/vendors`).set(vendors);
+    }
+    populateFilters();
+    if (document.getElementById('taxonomyModal').style.display === 'flex') renderTaxonomyList();
+  });
 
-db.ref(`${ROOT}/history`).limitToLast(450).on('value', snap => {
-  const raw = snap.val() || {};
-  historyLogs = Object.entries(raw)
-    .map(([key, val]) => ({ id: key, ...val }))
-    .sort((a, b) => (b.ts || 0) - (a.ts || 0));
-  const pill = document.getElementById('historyCount');
-  if (pill) pill.innerText = historyLogs.length;
-  populateHistoryUserFilter();
-  if (currentView === 'history') renderHistory();
-  if (currentView === 'reports') renderReports();
-});
+  db.ref(`${ROOT}/categories`).on('value', snap => {
+    const data = snap.val();
+    const parsed = Array.isArray(data) ? data : (data ? Object.values(data) : null);
+    if (parsed && parsed.length > 0) {
+      categories = uniqueSorted([...parsed, ...skus.map(s => s.cat)]);
+    } else {
+      categories = uniqueSorted([...(CFG.defaultCategories || []), ...skus.map(s => s.cat)]);
+      if (categories.length) db.ref(`${ROOT}/categories`).set(categories);
+    }
+    populateFilters();
+    if (document.getElementById('taxonomyModal').style.display === 'flex') renderTaxonomyList();
+  });
+
+  db.ref(`${ROOT}/skus`).on('value', snap => {
+    const data = snap.val();
+    const parsed = Array.isArray(data) ? data : (data ? Object.values(data) : null);
+    if (parsed && parsed.length > 0) {
+      skus = parsed;
+      localStorage.setItem(PREFIX + 'skus', JSON.stringify(skus));
+      vendors = uniqueSorted([...vendors, ...skus.map(s => s.vendor)]);
+      categories = uniqueSorted([...categories, ...skus.map(s => s.cat)]);
+      populateFilters();
+      renderCatalog();
+      if (!isEditingChecklist()) renderChecklist();
+      else deferredChecklistRender = true;
+      if (currentView === 'reports') renderReports();
+      refreshOpenDetailModal();
+    } else if (INITIAL_SKUS.length > 0) {
+      skus = JSON.parse(JSON.stringify(INITIAL_SKUS));
+      db.ref(`${ROOT}/skus`).set(skus);
+    }
+  });
+
+  db.ref(`${ROOT}/orders`).on('value', snap => {
+    buyOrders = snap.val() || {};
+    localStorage.setItem(PREFIX + 'orders', JSON.stringify(buyOrders));
+    renderCatalog();
+    if (!isEditingChecklist()) renderChecklist();
+    else deferredChecklistRender = true;
+    if (activeDetailSkuId && document.getElementById('itemDetailModal').style.display === 'flex') {
+      updateDetailOrderButton(activeDetailSkuId);
+    }
+  });
+
+  db.ref(`${ROOT}/backups`).on('value', snap => {
+    cloudBackups = snap.val() || {};
+    if (document.getElementById('backupsModal').style.display === 'flex') renderCloudBackupsList();
+  });
+
+  db.ref(`${ROOT}/settings/telegram`).on('value', snap => {
+    const val = snap.val();
+    if (val && (val.botToken || val.chatId)) {
+      if (val.botToken) { botToken = val.botToken; localStorage.setItem(PREFIX + 'bot_token', botToken); }
+      if (val.chatId) { chatId = val.chatId; localStorage.setItem(PREFIX + 'chat_id', chatId); }
+    }
+    updateTelegramBadgeUI();
+  });
+
+  db.ref(`${ROOT}/history`).limitToLast(450).on('value', snap => {
+    const raw = snap.val() || {};
+    historyLogs = Object.entries(raw)
+      .map(([key, val]) => ({ id: key, ...val }))
+      .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    const pill = document.getElementById('historyCount');
+    if (pill) pill.innerText = historyLogs.length;
+    populateHistoryUserFilter();
+    if (currentView === 'history') renderHistory();
+    if (currentView === 'reports') renderReports();
+  });
+
+  const photosRef = db.ref(`${ROOT}/photos`);
+  photosRef.on('child_added', s => {
+    const val = s.val();
+    itemPhotos[s.key] = Array.isArray(val) ? val : (val ? [val] : []);
+    schedulePhotoRender(s.key);
+  });
+  photosRef.on('child_changed', s => {
+    const val = s.val();
+    itemPhotos[s.key] = Array.isArray(val) ? val : (val ? [val] : []);
+    schedulePhotoRender(s.key);
+  });
+  photosRef.on('child_removed', s => {
+    delete itemPhotos[s.key];
+    schedulePhotoRender(s.key);
+  });
+}
+
+if (auth) {
+  auth.onAuthStateChanged(user => {
+    const cloudStep = document.getElementById('authCloudStep');
+    const profStep = document.getElementById('authProfileStep');
+    const pinStep = document.getElementById('authPinStep');
+    const signOutBtn = document.getElementById('btnCloudSignOut');
+    const sub = document.getElementById('authSubtitle');
+    if (user) {
+      if (cloudStep) cloudStep.style.display = 'none';
+      if (signOutBtn) signOutBtn.style.display = 'block';
+      if (!currentUser && profStep && (!pinStep || pinStep.style.display === 'none')) {
+        profStep.style.display = 'block';
+      }
+      if (sub && !pendingLoginAccount) sub.innerText = 'Select your account to sign in';
+      attachRealtimeListeners();
+    } else {
+      currentUser = null;
+      pendingLoginAccount = null;
+      if (cloudStep) cloudStep.style.display = 'flex';
+      if (profStep) profStep.style.display = 'none';
+      if (pinStep) pinStep.style.display = 'none';
+      if (signOutBtn) signOutBtn.style.display = 'none';
+      if (sub) sub.innerText = 'Store Cloud Sign-In (One-Time Setup)';
+      document.getElementById('authOverlay').style.display = 'flex';
+    }
+  });
+} else {
+  const profStep = document.getElementById('authProfileStep');
+  if (profStep) profStep.style.display = 'block';
+  attachRealtimeListeners();
+}
 
 function pushAccountsToCloud() { db.ref(`${ROOT}/accounts`).set(accounts); }
 function pushVendorsToCloud() { db.ref(`${ROOT}/vendors`).set(uniqueSorted(vendors)); }
@@ -481,35 +581,6 @@ function updateTelegramBadgeUI() {
 }
 
 /* 7. Photo Cloud Sync & Dual Picker (Camera + Library) */
-const photosRef = db.ref(`${ROOT}/photos`);
-let photoRenderTimer = null;
-
-function schedulePhotoRender(changedSkuId) {
-  if (activeDetailSkuId === changedSkuId) renderDetailPhotos();
-  clearTimeout(photoRenderTimer);
-  photoRenderTimer = setTimeout(() => {
-    renderCatalog();
-    if (!isEditingChecklist()) renderChecklist();
-    else deferredChecklistRender = true;
-    if (currentView === 'reports') renderReports();
-  }, 60);
-}
-
-photosRef.on('child_added', s => {
-  const val = s.val();
-  itemPhotos[s.key] = Array.isArray(val) ? val : (val ? [val] : []);
-  schedulePhotoRender(s.key);
-});
-photosRef.on('child_changed', s => {
-  const val = s.val();
-  itemPhotos[s.key] = Array.isArray(val) ? val : (val ? [val] : []);
-  schedulePhotoRender(s.key);
-});
-photosRef.on('child_removed', s => {
-  delete itemPhotos[s.key];
-  schedulePhotoRender(s.key);
-});
-
 function pushSkuPhotosToCloud(id) {
   const photos = Array.isArray(itemPhotos[id]) ? itemPhotos[id] : (itemPhotos[id] ? [itemPhotos[id]] : []);
   return photos.length === 0 ? db.ref(`${ROOT}/photos/${id}`).remove() : db.ref(`${ROOT}/photos/${id}`).set(photos);
@@ -611,21 +682,9 @@ function updateFilterIndicators() {
   document.getElementById('clearSearchBtn').style.display = q ? 'flex' : 'none';
 }
 
-function onSearchInput() {
-  updateFilterIndicators();
-  renderCatalog();
-}
-
-function clearCatalogSearch() {
-  document.getElementById('searchBox').value = '';
-  updateFilterIndicators();
-  renderCatalog();
-}
-
-function onFilterChange() {
-  updateFilterIndicators();
-  renderCatalog();
-}
+function onSearchInput() { updateFilterIndicators(); renderCatalog(); }
+function clearCatalogSearch() { document.getElementById('searchBox').value = ''; updateFilterIndicators(); renderCatalog(); }
+function onFilterChange() { updateFilterIndicators(); renderCatalog(); }
 
 function toggleLowStockFilter() {
   filterLowStock = !filterLowStock;
@@ -701,7 +760,6 @@ function populateFilters() {
   fillSelect('categoryFilter', allCats, 'All Categories');
   fillSelect('reportVendorFilter', allVendors, 'All Vendors');
 
-  // SKU modal dropdowns
   const fillModalSelect = (elId, list, placeholder) => {
     const sel = document.getElementById(elId);
     if (!sel) return;
@@ -870,7 +928,6 @@ function renderCatalog() {
   const grid = document.getElementById('itemsGrid');
   const leadOrMgr = isLeaderOrManager();
 
-  // Live toolbar counts
   const lowCount = skus.filter(s => s.min > 0 && s.stock <= s.min).length;
   const needsParCount = skus.filter(s => s.min === 0 && s.max === 0).length;
   const zeroCount = skus.filter(s => s.stock === 0).length;
@@ -1554,7 +1611,7 @@ function exportHistoryCsv() {
       h.summary || ''
     ]);
   });
-  downloadCsvFile(rows, `swirla-history-${new Date().toISOString().slice(0, 10)}.csv`);
+  downloadCsvFile(rows, `${PREFIX}history-${new Date().toISOString().slice(0, 10)}.csv`);
 }
 
 /* 14. Management & Buying Insights Reports */
@@ -1610,20 +1667,14 @@ function computeReportMetrics() {
   const mostBought = Object.values(itemStats).sort((a, b) => b.bought - a.bought || b.runs - a.runs);
   const leastBought = skuPool
     .map(s => ({
-      id: s.id,
-      name: s.name,
-      vendor: s.vendor,
-      stock: s.stock,
-      min: s.min,
-      max: s.max,
-      bought: itemStats[s.id]?.bought || 0,
-      runs: itemStats[s.id]?.runs || 0
+      id: s.id, name: s.name, vendor: s.vendor, stock: s.stock, min: s.min, max: s.max,
+      bought: itemStats[s.id]?.bought || 0, runs: itemStats[s.id]?.runs || 0
     }))
     .sort((a, b) => a.bought - b.bought || b.stock - a.stock);
 
   const shortItems = Object.values(itemStats)
     .filter(x => x.shorts > 0)
-    .sort((a, b) => b.shorts - a.shorts || (a.bought / Math.max(1, a.needed)) - (b.bought / Math.max(1, b.needed)));
+    .sort((a, b) => b.shorts - a.shorts || (a.bought / Math.max(1, a.needed)) - (b.bought / Math.max(1, a.needed)));
 
   const parSuggestions = [];
   mostBought.forEach(st => {
@@ -1665,7 +1716,7 @@ function renderReports() {
 
   const emptyNotice = m.receiveEvents.length === 0 ? `
     <div style="background:var(--primary-light); border:1px solid rgba(217,107,39,0.28); color:var(--primary-dark); padding:11px 14px; border-radius:12px; font-size:12.5px; font-weight:600; margin-bottom:12px;">
-      📊 Buying velocity charts start filling automatically as soon as your team completes its first <strong>Receive Stock</strong> run! Catalog Health &amp; Dead Stock insights are already live below.
+      📊 Buying velocity charts start filling automatically once your team completes its first <strong>Receive Stock</strong> run! Catalog Health &amp; Dead Stock insights are already live below.
     </div>
   ` : '';
 
@@ -1764,7 +1815,7 @@ function exportReportCsv() {
     const st = m.mostBought.find(x => x.id === s.id);
     rows.push([s.name, s.vendor, st?.bought || 0, st?.runs || 0, st?.needed || 0, st?.shorts || 0, s.stock, s.min, s.max]);
   });
-  downloadCsvFile(rows, `swirla-report-${new Date().toISOString().slice(0, 10)}.csv`);
+  downloadCsvFile(rows, `${PREFIX}report-${new Date().toISOString().slice(0, 10)}.csv`);
 }
 
 function downloadCsvFile(rows, filename) {
@@ -1772,9 +1823,7 @@ function downloadCsvFile(rows, filename) {
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
+  a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
   showToast('CSV exported', 'success');
 }
@@ -1792,14 +1841,13 @@ async function sendReportSummaryTelegram() {
     `• *Low Stock Items:* ${m.lowCount} | *Missing Pars (0/0):* ${m.noParCount}\n\n` +
     `🔥 *Top 5 Most-Bought:*\n${topLines}\n\n_Generated by ${escapeTgMarkdown(currentUser.name)}_`;
 
-  const ok = await postTelegramMessage(text);
-  if (ok) showToast('Management summary sent to Telegram!', 'success');
+  if (await postTelegramMessage(text)) showToast('Management summary sent to Telegram!', 'success');
 }
 
 /* 15. Telegram Dispatch */
 async function postTelegramMessage(text) {
   if (!botToken || !chatId) {
-    showToast('Telegram not configured. Manager: tap ✈️ Telegram to set Token & Chat ID.', 'warning', 4500);
+    showToast('Telegram not configured. Manager: tap ✈️ Setup Telegram to set Token & Chat ID.', 'warning', 4500);
     return false;
   }
   try {
