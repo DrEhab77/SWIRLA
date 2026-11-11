@@ -1,5 +1,5 @@
 /* ============================================================================
-   SWIRLA OPS — APPLICATION ENGINE (v4 White-Label + Cloud Auth Edition)
+   SWIRLA OPS — APPLICATION ENGINE (v5 Manager Audit + Item Verification)
    ============================================================================ */
 
 const CFG = window.SWIRLA_CONFIG || {};
@@ -159,9 +159,7 @@ function logHistory(type, summary, details = {}) {
 
 function queueStockHistoryLog(item, oldVal, newVal) {
   if (oldVal === newVal) return;
-  if (stockLogOrigin[item.id] === undefined) {
-    stockLogOrigin[item.id] = oldVal;
-  }
+  if (stockLogOrigin[item.id] === undefined) stockLogOrigin[item.id] = oldVal;
   clearTimeout(stockLogTimers[item.id]);
   stockLogTimers[item.id] = setTimeout(() => {
     const startVal = stockLogOrigin[item.id];
@@ -348,8 +346,10 @@ function applyRoleUI() {
   document.getElementById('btnTeamAccess').style.display = mgr ? 'inline-flex' : 'none';
   document.getElementById('btnBackups').style.display = mgr ? 'inline-flex' : 'none';
   document.getElementById('telegramStatusBadge').style.cursor = mgr ? 'pointer' : 'default';
-  document.getElementById('tabHistory').style.display = leadOrMgr ? 'flex' : 'none';
-  document.getElementById('tabReports').style.display = leadOrMgr ? 'flex' : 'none';
+
+  // History & Reports strictly restricted to Manager only
+  document.getElementById('tabHistory').style.display = mgr ? 'flex' : 'none';
+  document.getElementById('tabReports').style.display = mgr ? 'flex' : 'none';
   document.getElementById('btnManageListsShortcut').style.display = leadOrMgr ? 'inline-flex' : 'none';
 
   document.getElementById('btnAddNewWrap').style.display = leadOrMgr ? 'block' : 'none';
@@ -367,18 +367,18 @@ function applyRoleUI() {
   }
   actionHtml += `<button class="btn btn-outline" id="sendBuyerReportBtn" style="padding:9px 11px; font-size:12px;" onclick="dispatchBuyerReport()">🚚 Bought Report</button>`;
   if (leadOrMgr) {
-    actionHtml += `<button class="btn btn-success" style="padding:9px 12px; font-size:12.5px;" onclick="openReceiveModal()">✅ Receive Stock</button>`;
+    actionHtml += `<button class="btn btn-success" style="padding:9px 12px; font-size:12.5px;" onclick="openReceiveModal()">✅ Receive Verified</button>`;
   }
   checkoutActions.innerHTML = actionHtml;
 
-  if (!leadOrMgr && (currentView === 'history' || currentView === 'reports')) {
-    switchView('checklist');
+  if (!mgr && (currentView === 'history' || currentView === 'reports')) {
+    switchView(leadOrMgr ? 'catalog' : 'checklist');
   }
 
   renderCatalog();
   if (!isEditingChecklist()) renderChecklist();
-  if (leadOrMgr && currentView === 'history') renderHistory();
-  if (leadOrMgr && currentView === 'reports') renderReports();
+  if (mgr && currentView === 'history') renderHistory();
+  if (mgr && currentView === 'reports') renderReports();
   refreshOpenDetailModal();
 }
 
@@ -408,7 +408,7 @@ function schedulePhotoRender(changedSkuId) {
     renderCatalog();
     if (!isEditingChecklist()) renderChecklist();
     else deferredChecklistRender = true;
-    if (currentView === 'reports') renderReports();
+    if (isManager() && currentView === 'reports') renderReports();
   }, 60);
 }
 
@@ -433,9 +433,8 @@ function attachRealtimeListeners() {
   db.ref(`${ROOT}/vendors`).on('value', snap => {
     const data = snap.val();
     const parsed = Array.isArray(data) ? data : (data ? Object.values(data) : null);
-    if (parsed && parsed.length > 0) {
-      vendors = uniqueSorted([...parsed, ...skus.map(s => s.vendor)]);
-    } else {
+    if (parsed && parsed.length > 0) vendors = uniqueSorted([...parsed, ...skus.map(s => s.vendor)]);
+    else {
       vendors = uniqueSorted([...(CFG.defaultVendors || []), ...skus.map(s => s.vendor)]);
       if (vendors.length) db.ref(`${ROOT}/vendors`).set(vendors);
     }
@@ -446,9 +445,8 @@ function attachRealtimeListeners() {
   db.ref(`${ROOT}/categories`).on('value', snap => {
     const data = snap.val();
     const parsed = Array.isArray(data) ? data : (data ? Object.values(data) : null);
-    if (parsed && parsed.length > 0) {
-      categories = uniqueSorted([...parsed, ...skus.map(s => s.cat)]);
-    } else {
+    if (parsed && parsed.length > 0) categories = uniqueSorted([...parsed, ...skus.map(s => s.cat)]);
+    else {
       categories = uniqueSorted([...(CFG.defaultCategories || []), ...skus.map(s => s.cat)]);
       if (categories.length) db.ref(`${ROOT}/categories`).set(categories);
     }
@@ -468,7 +466,7 @@ function attachRealtimeListeners() {
       renderCatalog();
       if (!isEditingChecklist()) renderChecklist();
       else deferredChecklistRender = true;
-      if (currentView === 'reports') renderReports();
+      if (isManager() && currentView === 'reports') renderReports();
       refreshOpenDetailModal();
     } else if (INITIAL_SKUS.length > 0) {
       skus = JSON.parse(JSON.stringify(INITIAL_SKUS));
@@ -508,9 +506,11 @@ function attachRealtimeListeners() {
       .sort((a, b) => (b.ts || 0) - (a.ts || 0));
     const pill = document.getElementById('historyCount');
     if (pill) pill.innerText = historyLogs.length;
-    populateHistoryUserFilter();
-    if (currentView === 'history') renderHistory();
-    if (currentView === 'reports') renderReports();
+    if (isManager()) {
+      populateHistoryUserFilter();
+      if (currentView === 'history') renderHistory();
+      if (currentView === 'reports') renderReports();
+    }
   });
 
   const photosRef = db.ref(`${ROOT}/photos`);
@@ -580,7 +580,7 @@ function updateTelegramBadgeUI() {
   badge.innerText = (botToken && chatId) ? '✈️ Telegram On' : '✈️ Setup Telegram';
 }
 
-/* 7. Photo Cloud Sync & Dual Picker (Camera + Library) */
+/* 7. Photo Cloud Sync & Dual Picker */
 function pushSkuPhotosToCloud(id) {
   const photos = Array.isArray(itemPhotos[id]) ? itemPhotos[id] : (itemPhotos[id] ? [itemPhotos[id]] : []);
   return photos.length === 0 ? db.ref(`${ROOT}/photos/${id}`).remove() : db.ref(`${ROOT}/photos/${id}`).set(photos);
@@ -645,8 +645,10 @@ function handlePhotoCapture(event) {
 
 /* 8. Navigation, Sticky Filter Drawer & "+ Add New" Unified Menu */
 function switchView(view) {
-  const leadOrMgr = isLeaderOrManager();
-  if (!leadOrMgr && (view === 'history' || view === 'reports')) view = 'checklist';
+  const mgr = isManager();
+  if (!mgr && (view === 'history' || view === 'reports')) {
+    view = isLeaderOrManager() ? 'catalog' : 'checklist';
+  }
   currentView = view;
 
   document.getElementById('catalogView').style.display = view === 'catalog' ? 'block' : 'none';
@@ -676,10 +678,8 @@ function toggleFiltersDrawer() {
 function updateFilterIndicators() {
   const v = document.getElementById('vendorFilter').value;
   const c = document.getElementById('categoryFilter').value;
-  const hasDrawerActive = !!(v || c || filterZeroStock);
-  document.getElementById('toggleFiltersBtn').classList.toggle('has-active', hasDrawerActive);
-  const q = document.getElementById('searchBox').value;
-  document.getElementById('clearSearchBtn').style.display = q ? 'flex' : 'none';
+  document.getElementById('toggleFiltersBtn').classList.toggle('has-active', !!(v || c || filterZeroStock));
+  document.getElementById('clearSearchBtn').style.display = document.getElementById('searchBox').value ? 'flex' : 'none';
 }
 
 function onSearchInput() { updateFilterIndicators(); renderCatalog(); }
@@ -789,7 +789,7 @@ function switchTaxonomyTab(tab) {
   resetTaxonomyForm();
   document.getElementById('taxTabVendor').className = tab === 'vendor' ? 'btn btn-primary' : 'btn btn-outline';
   document.getElementById('taxTabCategory').className = tab === 'category' ? 'btn btn-primary' : 'btn btn-outline';
-  document.getElementById('taxonomyNameInput').placeholder = tab === 'vendor' ? 'New vendor name (e.g., Restaurant Depot)' : 'New category name (e.g., Dairy & Milks)';
+  document.getElementById('taxonomyNameInput').placeholder = tab === 'vendor' ? 'New vendor name' : 'New category name';
   renderTaxonomyList();
 }
 
@@ -948,8 +948,7 @@ function renderCatalog() {
   });
 
   document.getElementById('catalogCount').innerText = filtered.length;
-  const metaBar = document.getElementById('catalogMetaBar');
-  metaBar.innerHTML = `
+  document.getElementById('catalogMetaBar').innerHTML = `
     <span>Showing <strong>${filtered.length}</strong> of ${skus.length} SKUs</span>
     <span>${lowCount} below min · ${zeroCount} at 0</span>
   `;
@@ -998,9 +997,7 @@ function renderCatalog() {
       <button class="btn btn-primary" onclick="openItemDetailModal('${item.id}')">👁️ Details</button>
     `;
 
-    const noteHtml = item.note ? `
-      <div class="sku-note-pill"><span>📝</span><span>${escapeHtml(item.note)}</span></div>
-    ` : '';
+    const noteHtml = item.note ? `<div class="sku-note-pill"><span>📝</span><span>${escapeHtml(item.note)}</span></div>` : '';
 
     const card = document.createElement('div');
     card.className = `sku-card ${cardStateCls}`;
@@ -1069,7 +1066,7 @@ function setStock(id, val) {
   renderCatalog();
 }
 
-/* 11. Buy Checklist & Ordering */
+/* 11. Buy Checklist & Item-by-Item Anti-Theft Verification */
 function toggleOrder(id) {
   if (!isLeaderOrManager()) return;
   const item = skus.find(s => s.id === id);
@@ -1111,6 +1108,11 @@ function getOrderBoughtQty(order) {
   return order.done ? need : 0;
 }
 
+function getLeaderRecQty(order) {
+  if (order.recQty !== undefined && order.recQty !== null) return Math.max(0, parseInt(order.recQty) || 0);
+  return getOrderBoughtQty(order);
+}
+
 function getStatusInfo(need, bought) {
   if (bought >= need) return { cls: 'status-bought', text: `Bought (${bought}/${need})`, done: true };
   if (bought > 0) return { cls: 'status-partial', text: `Partial (${bought}/${need})`, done: false };
@@ -1132,7 +1134,9 @@ function renderChecklist() {
     return;
   }
 
+  const mgr = isManager();
   const leadOrMgr = isLeaderOrManager();
+  const isBuyer = !!(currentUser && currentUser.role === 'buyer');
   const grouped = {};
   orderIds.forEach(id => {
     const item = skus.find(s => s.id === id);
@@ -1146,6 +1150,7 @@ function renderChecklist() {
   Object.keys(grouped).sort().forEach(vendor => {
     const groupCard = document.createElement('div');
     groupCard.className = 'vendor-group';
+    const verifiedCount = grouped[vendor].filter(({ order }) => !!order.leaderChecked).length;
 
     let itemsHtml = '';
     grouped[vendor].forEach(({ item, order }) => {
@@ -1154,10 +1159,18 @@ function renderChecklist() {
       const currentUnit = order.unit || item.unit || 'Units';
       const needQty = Math.max(1, parseInt(order.qty) || 1);
       const boughtQty = getOrderBoughtQty(order);
+      const recQty = getLeaderRecQty(order);
+      const isChecked = !!order.leaderChecked;
+      const hasMismatch = boughtQty > 0 && recQty !== boughtQty;
       const status = getStatusInfo(needQty, boughtQty);
 
       const unitOptions = STANDARD_UNITS.includes(currentUnit) ? STANDARD_UNITS : [currentUnit, ...STANDARD_UNITS];
       const unitSelectHtml = unitOptions.map(u => `<option value="${escapeHtml(u)}" ${u === currentUnit ? 'selected' : ''}>${escapeHtml(u)}</option>`).join('');
+
+      // Buyer checkbox on top-left (only Buyers/Managers see it, locked once Leader verifies!)
+      const leftCheckHtml = (isBuyer || mgr) ? `
+        <input type="checkbox" id="clCheck_${item.id}" style="transform:scale(1.2); flex-shrink:0;" ${status.done ? 'checked' : ''} ${isChecked ? 'disabled title="Locked after delivery verification"' : ''} onchange="toggleDone('${item.id}')">
+      ` : '';
 
       const needHtml = leadOrMgr ? `
         <div class="cl-field-group">
@@ -1173,6 +1186,70 @@ function renderChecklist() {
         </div>
       `;
 
+      // Buyer edits Bought until verified by Leader; Shift Leader views Buyer's claim read-only so it can't be tampered with
+      let boughtHtml = '';
+      if ((isBuyer || mgr) && !isChecked) {
+        boughtHtml = `
+          <div class="cl-field-group">
+            <span style="font-size:11.5px; font-weight:700; color:var(--success);">Bought:</span>
+            <button class="qty-btn" onclick="adjustBoughtQty('${item.id}', -1)">−</button>
+            <input type="number" class="qty-input" value="${boughtQty}" min="0" onfocus="this.select()" oninput="onBoughtInput('${item.id}', this.value)" onchange="commitBoughtEdit('${item.id}', this.value)" onblur="flushDeferredChecklistRender()">
+            <button class="qty-btn" onclick="adjustBoughtQty('${item.id}', 1)">+</button>
+          </div>
+        `;
+      } else {
+        const lockNote = isChecked ? ' 🔒' : '';
+        const byNote = order.boughtBy ? ` (${escapeHtml(order.boughtBy)})` : '';
+        boughtHtml = `
+          <div class="cl-field-group">
+            <span style="font-size:11.5px; font-weight:800; background:var(--surface-soft); padding:4px 8px; border-radius:7px; color:var(--text);">Buyer: ${boughtQty}${byNote}${lockNote}</span>
+          </div>
+        `;
+      }
+
+      // Leader Delivery Check & Per-Item Receive Box (Shift Leaders & Managers only)
+      let leaderBoxHtml = '';
+      if (leadOrMgr) {
+        const diff = recQty - boughtQty;
+        let auditBadgeHtml = '';
+        if (hasMismatch) {
+          auditBadgeHtml = `<span class="cl-mismatch-pill">🚨 Diff: ${diff > 0 ? '+' : ''}${diff} vs Buyer (${boughtQty})</span>`;
+        } else if (isChecked) {
+          auditBadgeHtml = `<span class="cl-match-pill">✓ Verified by ${escapeHtml(order.checkedBy || 'Leader')}</span>`;
+        }
+
+        const fillNeedBtn = (recQty === 0 && !isChecked)
+          ? `<button class="btn btn-outline" style="padding:3px 7px; font-size:11px;" onclick="fillRecFromNeed('${item.id}')">= ${needQty}</button>`
+          : '';
+
+        leaderBoxHtml = `
+          <div class="cl-verify-box ${isChecked ? 'verified' : ''} ${hasMismatch ? 'mismatch' : ''}" id="clVerifyBox_${item.id}">
+            <div class="cl-verify-top">
+              <div class="cl-field-group">
+                <span style="font-size:11.5px; font-weight:800; color:var(--header-bg);">Rec'd Count:</span>
+                <button class="qty-btn" onclick="adjustRecQty('${item.id}', -1)">−</button>
+                <input type="number" id="clRecInput_${item.id}" class="qty-input" value="${recQty}" min="0" onfocus="this.select()" oninput="onRecQtyInput('${item.id}', this.value)" onchange="commitRecQtyEdit('${item.id}', this.value)" onblur="flushDeferredChecklistRender()">
+                <button class="qty-btn" onclick="adjustRecQty('${item.id}', 1)">+</button>
+                ${fillNeedBtn}
+              </div>
+              <div id="clAuditBadge_${item.id}">${auditBadgeHtml}</div>
+            </div>
+            <div class="cl-verify-actions">
+              <button id="clVerifyBtn_${item.id}" class="btn btn-outline ${isChecked ? 'btn-verify-done' : ''}" onclick="toggleLeaderVerify('${item.id}')">
+                ${isChecked ? `✅ Verified (${recQty})` : '☑️ Verify Count'}
+              </button>
+              <button class="btn btn-primary" data-vendor="${escapeHtml(vendor)}" data-id="${item.id}" onclick="openReceiveModal(this.dataset.vendor, this.dataset.id)">
+                📥 Receive Item
+              </button>
+            </div>
+          </div>
+        `;
+      } else if (isChecked) {
+        leaderBoxHtml = `
+          <div class="cl-match-pill" style="align-self:flex-start;">✅ Verified by ${escapeHtml(order.checkedBy || 'Leader')} (${recQty})</div>
+        `;
+      }
+
       const skuNoteHtml = item.note ? `
         <div class="sku-note-pill" style="padding:4px 8px; font-size:11px;"><span>📌</span><span>${escapeHtml(item.note)}</span></div>
       ` : '';
@@ -1181,7 +1258,7 @@ function renderChecklist() {
         <div class="checklist-item ${status.done ? 'done' : ''}" id="clRow_${item.id}">
           <div class="cl-item-top">
             <div class="cl-left">
-              <input type="checkbox" id="clCheck_${item.id}" style="transform:scale(1.2); flex-shrink:0;" ${status.done ? 'checked' : ''} onchange="toggleDone('${item.id}')">
+              ${leftCheckHtml}
               <div class="cl-thumb" onclick="handleThumbnailClick('${item.id}')">
                 ${latestPhoto ? `<img src="${latestPhoto}">` : `<span>📷</span>`}
               </div>
@@ -1200,16 +1277,13 @@ function renderChecklist() {
 
           <div class="cl-controls-row">
             ${needHtml}
-            <div class="cl-field-group">
-              <span style="font-size:11.5px; font-weight:700; color:var(--success);">Bought:</span>
-              <button class="qty-btn" onclick="adjustBoughtQty('${item.id}', -1)">−</button>
-              <input type="number" class="qty-input" value="${boughtQty}" min="0" oninput="onBoughtInput('${item.id}', this.value)" onchange="commitBoughtEdit('${item.id}', this.value)" onblur="flushDeferredChecklistRender()">
-              <button class="qty-btn" onclick="adjustBoughtQty('${item.id}', 1)">+</button>
-            </div>
+            ${boughtHtml}
             <span class="cl-status-pill ${status.cls}" id="clStatus_${item.id}">${status.text}</span>
           </div>
 
-          <input type="text" class="cl-note-input" value="${escapeHtml(order.note || '')}" placeholder="📝 One-time buy note (price, brand out, aisle)..." oninput="onNoteInput('${item.id}', this.value)" onchange="pushOrdersToCloud()" onblur="flushDeferredChecklistRender()">
+          ${leaderBoxHtml}
+
+          <input type="text" class="cl-note-input" value="${escapeHtml(order.note || '')}" placeholder="📝 One-time buy note (price, discrepancy reason, aisle)..." oninput="onNoteInput('${item.id}', this.value)" onchange="pushOrdersToCloud()" onblur="flushDeferredChecklistRender()">
         </div>
       `;
     });
@@ -1217,7 +1291,7 @@ function renderChecklist() {
     const vendorActionsHtml = leadOrMgr ? `
       <div class="vendor-header-actions">
         <button class="btn btn-primary" style="padding:4px 9px; font-size:11px;" data-vendor="${escapeHtml(vendor)}" onclick="dispatchToTelegram(this.dataset.vendor)">✈️ Send Store</button>
-        <button class="btn btn-success" style="padding:4px 9px; font-size:11px;" data-vendor="${escapeHtml(vendor)}" onclick="openReceiveModal(this.dataset.vendor)">✅ Receive Store</button>
+        <button class="btn btn-success" style="padding:4px 9px; font-size:11px;" data-vendor="${escapeHtml(vendor)}" onclick="openReceiveModal(this.dataset.vendor)">✅ Receive Store (${verifiedCount}/${grouped[vendor].length})</button>
       </div>
     ` : '';
 
@@ -1235,7 +1309,7 @@ function renderChecklist() {
 function toggleDone(id) {
   const order = buyOrders[id];
   const item = skus.find(s => s.id === id);
-  if (!order) return;
+  if (!order || order.leaderChecked) return;
   const need = Math.max(1, parseInt(order.qty) || 1);
   const oldBought = getOrderBoughtQty(order);
   if (oldBought >= need) {
@@ -1271,7 +1345,7 @@ function onOrderQtyInput(id, val) {
 }
 
 function adjustBoughtQty(id, delta) {
-  if (!buyOrders[id]) return;
+  if (!buyOrders[id] || buyOrders[id].leaderChecked) return;
   const oldBought = getOrderBoughtQty(buyOrders[id]);
   const nextBought = Math.max(0, oldBought + delta);
   const need = Math.max(1, parseInt(buyOrders[id].qty) || 1);
@@ -1287,7 +1361,7 @@ function adjustBoughtQty(id, delta) {
 }
 
 function onBoughtInput(id, val) {
-  if (!buyOrders[id]) return;
+  if (!buyOrders[id] || buyOrders[id].leaderChecked) return;
   const bought = Math.max(0, parseInt(val) || 0);
   const need = Math.max(1, parseInt(buyOrders[id].qty) || 1);
   buyOrders[id].bought = bought;
@@ -1295,10 +1369,11 @@ function onBoughtInput(id, val) {
   const status = getStatusInfo(need, bought);
   buyOrders[id].done = status.done;
   updateChecklistRowStatusInPlace(id, status);
+  refreshChecklistItemBadgesInPlace(id);
 }
 
 function commitBoughtEdit(id, val) {
-  if (!buyOrders[id]) return;
+  if (!buyOrders[id] || buyOrders[id].leaderChecked) return;
   const item = skus.find(s => s.id === id);
   const bought = Math.max(0, parseInt(val) || 0);
   const need = Math.max(1, parseInt(buyOrders[id].qty) || 1);
@@ -1309,6 +1384,97 @@ function commitBoughtEdit(id, val) {
     logHistory('bought_edit', `${item.name}: Set Bought to ${bought} (of ${need})`, { itemName: item.name, vendor: item.vendor });
   }
   pushOrdersToCloud();
+}
+
+/* Leader Item-by-Item Count Verification Controls */
+function adjustRecQty(id, delta) {
+  if (!isLeaderOrManager() || !buyOrders[id]) return;
+  const cur = getLeaderRecQty(buyOrders[id]);
+  buyOrders[id].recQty = Math.max(0, cur + delta);
+  pushOrdersToCloud();
+  renderChecklist();
+}
+
+function fillRecFromNeed(id) {
+  if (!isLeaderOrManager() || !buyOrders[id]) return;
+  buyOrders[id].recQty = Math.max(1, parseInt(buyOrders[id].qty) || 1);
+  pushOrdersToCloud();
+  renderChecklist();
+}
+
+function onRecQtyInput(id, val) {
+  if (!isLeaderOrManager() || !buyOrders[id]) return;
+  buyOrders[id].recQty = Math.max(0, parseInt(val) || 0);
+  refreshChecklistItemBadgesInPlace(id);
+}
+
+function commitRecQtyEdit(id, val) {
+  if (!isLeaderOrManager() || !buyOrders[id]) return;
+  buyOrders[id].recQty = Math.max(0, parseInt(val) || 0);
+  pushOrdersToCloud();
+}
+
+function refreshChecklistItemBadgesInPlace(id) {
+  const order = buyOrders[id];
+  if (!order) return;
+  const boughtQty = getOrderBoughtQty(order);
+  const recQty = getLeaderRecQty(order);
+  const isChecked = !!order.leaderChecked;
+  const hasMismatch = boughtQty > 0 && recQty !== boughtQty;
+  const diff = recQty - boughtQty;
+
+  const box = document.getElementById(`clVerifyBox_${id}`);
+  const badge = document.getElementById(`clAuditBadge_${id}`);
+  const btn = document.getElementById(`clVerifyBtn_${id}`);
+
+  if (box) {
+    box.classList.toggle('verified', isChecked);
+    box.classList.toggle('mismatch', hasMismatch);
+  }
+  if (badge) {
+    if (hasMismatch) {
+      badge.innerHTML = `<span class="cl-mismatch-pill">🚨 Diff: ${diff > 0 ? '+' : ''}${diff} vs Buyer (${boughtQty})</span>`;
+    } else if (isChecked) {
+      badge.innerHTML = `<span class="cl-match-pill">✓ Verified by ${escapeHtml(order.checkedBy || 'Leader')}</span>`;
+    } else {
+      badge.innerHTML = '';
+    }
+  }
+  if (btn) {
+    btn.innerText = isChecked ? `✅ Verified (${recQty})` : '☑️ Verify Count';
+  }
+}
+
+function toggleLeaderVerify(id) {
+  if (!isLeaderOrManager() || !buyOrders[id]) return;
+  const order = buyOrders[id];
+  const item = skus.find(s => s.id === id);
+  const boughtQty = getOrderBoughtQty(order);
+  const recQty = getLeaderRecQty(order);
+
+  if (order.leaderChecked) {
+    order.leaderChecked = false;
+    delete order.checkedBy;
+    delete order.checkedAt;
+    showToast(`Unverified ${item ? item.name : 'item'}`, 'info');
+  } else {
+    order.recQty = recQty;
+    order.leaderChecked = true;
+    order.checkedBy = currentUser.name;
+    order.checkedAt = Date.now();
+    if (item) {
+      const diff = recQty - boughtQty;
+      const mismatchTxt = (boughtQty > 0 && diff !== 0) ? ` [🚨 MISMATCH: Buyer ${boughtQty} vs Rec'd ${recQty}]` : '';
+      logHistory('verify_item', `Verified ${item.name}: Rec'd ${recQty} (Buyer: ${boughtQty})${mismatchTxt}`, {
+        itemName: item.name, vendor: item.vendor, buyerClaimed: boughtQty, recQty, diff
+      });
+    }
+    showToast(boughtQty > 0 && recQty !== boughtQty
+      ? `Verified with mismatch: Buyer ${boughtQty} vs Rec'd ${recQty}`
+      : `Verified ${item ? item.name : 'item'} (${recQty})`, boughtQty > 0 && recQty !== boughtQty ? 'warning' : 'success');
+  }
+  pushOrdersToCloud();
+  renderChecklist();
 }
 
 function updateChecklistRowStatusInPlace(id, status) {
@@ -1356,59 +1522,101 @@ function clearAllChecklist() {
   showToast('Buying checklist cleared', 'info');
 }
 
-/* 12. Supervise & Receive Bought Items (Shift Leaders & Managers Only) */
-function openReceiveModal(targetVendor = null) {
+/* 12. Receive Item / Receive Store with Anti-Theft Buyer Check (Shift Leaders & Managers Only) */
+function openReceiveModal(targetVendor = null, targetSkuId = null) {
   if (!isLeaderOrManager()) {
     showToast('Only Shift Leaders or Management can receive stock.', 'warning');
     return;
   }
-  const orderIds = Object.keys(buyOrders).filter(id => skus.some(s => s.id === id));
+
+  const orderIds = targetSkuId
+    ? (buyOrders[targetSkuId] ? [targetSkuId] : [])
+    : Object.keys(buyOrders).filter(id => skus.some(s => s.id === id));
+
   pendingReceiveSummary = [];
+  let unverifiedCount = 0;
 
   orderIds.forEach(id => {
     const item = skus.find(s => s.id === id);
     if (!item || (targetVendor && item.vendor !== targetVendor)) return;
     const order = buyOrders[id];
     const need = Math.max(1, parseInt(order.qty) || 1);
-    const bought = getOrderBoughtQty(order);
-    if (bought > 0) {
-      pendingReceiveSummary.push({
-        id,
-        name: item.name,
-        vendor: item.vendor,
-        unit: order.unit || item.unit || 'Units',
-        oldStock: item.stock,
-        bought,
-        need,
-        newStock: item.stock + bought,
-        remaining: Math.max(0, need - bought),
-        boughtBy: order.boughtBy || 'Buyer'
-      });
+    const buyerClaimed = getOrderBoughtQty(order);
+    const recQty = getLeaderRecQty(order);
+
+    if (!targetSkuId && !order.leaderChecked) {
+      unverifiedCount++;
+      return;
     }
+    if (targetSkuId && recQty === 0 && buyerClaimed === 0) {
+      return;
+    }
+
+    pendingReceiveSummary.push({
+      id,
+      name: item.name,
+      vendor: item.vendor,
+      unit: order.unit || item.unit || 'Units',
+      oldStock: item.stock,
+      bought: recQty,
+      buyerClaimed,
+      diff: recQty - buyerClaimed,
+      need,
+      newStock: item.stock + recQty,
+      remaining: Math.max(0, need - recQty),
+      boughtBy: order.boughtBy || 'Buyer',
+      checkedBy: order.checkedBy || currentUser.name
+    });
   });
 
   if (!pendingReceiveSummary.length) {
-    showToast('No items marked Bought yet for this selection.', 'warning');
+    showToast(targetSkuId
+      ? 'Enter a Rec\'d Count greater than 0 first.'
+      : 'Check items one by one (tap ☑️ Verify Count) before receiving.', 'warning', 4000);
     return;
   }
 
-  document.getElementById('receiveModalTitle').innerText = targetVendor
-    ? `✅ Receive ${targetVendor} Items`
-    : '✅ Receive Bought Items into Stock';
+  document.getElementById('receiveModalTitle').innerText = targetSkuId
+    ? `📥 Receive: ${pendingReceiveSummary[0].name}`
+    : (targetVendor ? `✅ Receive ${targetVendor} Store` : '✅ Receive Verified Items');
 
   const list = document.getElementById('receivePreviewList');
   list.innerHTML = '';
+
+  const mismatches = pendingReceiveSummary.filter(e => e.buyerClaimed > 0 && e.diff !== 0);
+  const banner = document.createElement('div');
+  if (mismatches.length > 0) {
+    banner.className = 'audit-banner alert';
+    banner.innerText = `🚨 BUYER DISCREPANCY DETECTED on ${mismatches.length} item(s)! Verify physical bags—mismatches are logged to Management History.`;
+  } else {
+    banner.className = 'audit-banner ok';
+    banner.innerText = '✅ All verified counts match the Buyer\'s report.';
+  }
+  list.appendChild(banner);
+
+  if (!targetSkuId && unverifiedCount > 0) {
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:11.5px; font-weight:700; color:var(--text-muted); padding:2px 4px;';
+    note.innerText = `⏳ ${unverifiedCount} unchecked item(s) will remain on the checklist until verified.`;
+    list.appendChild(note);
+  }
+
   pendingReceiveSummary.forEach(entry => {
     const row = document.createElement('div');
     row.className = 'list-row-card';
+    const hasDiff = entry.buyerClaimed > 0 && entry.diff !== 0;
+    const diffBadge = hasDiff
+      ? `<span class="cl-mismatch-pill">Buyer ${entry.buyerClaimed} vs Rec'd ${entry.bought} (${entry.diff > 0 ? '+' : ''}${entry.diff})</span>`
+      : '';
     const remainBadge = entry.remaining > 0
       ? `<span style="font-size:11px; color:#92400E; background:var(--warning-light); padding:2px 7px; border-radius:6px; font-weight:700;">${entry.remaining} left</span>`
       : `<span style="font-size:11px; color:#065F46; background:var(--success-light); padding:2px 7px; border-radius:6px; font-weight:700;">Fulfilled</span>`;
 
     row.innerHTML = `
-      <div style="min-width:0;">
+      <div style="min-width:0; display:flex; flex-direction:column; gap:3px;">
         <div style="font-size:13px; font-weight:800;">${escapeHtml(entry.name)}</div>
-        <div style="font-size:11px; color:var(--text-muted);">${escapeHtml(entry.vendor)} · Stock: ${entry.oldStock} → <strong>${entry.newStock} ${escapeHtml(entry.unit)}</strong> (+${entry.bought})</div>
+        <div style="font-size:11px; color:var(--text-muted);">Stock: ${entry.oldStock} → <strong>${entry.newStock} ${escapeHtml(entry.unit)}</strong> (+${entry.bought})</div>
+        ${diffBadge}
       </div>
       ${remainBadge}
     `;
@@ -1435,6 +1643,11 @@ async function confirmReceiveToStock() {
       buyOrders[entry.id].qty = entry.remaining;
       buyOrders[entry.id].bought = 0;
       buyOrders[entry.id].done = false;
+      delete buyOrders[entry.id].recQty;
+      delete buyOrders[entry.id].leaderChecked;
+      delete buyOrders[entry.id].checkedBy;
+      delete buyOrders[entry.id].checkedAt;
+      delete buyOrders[entry.id].boughtBy;
       partialCount++;
     } else {
       delete buyOrders[entry.id];
@@ -1442,12 +1655,17 @@ async function confirmReceiveToStock() {
   });
 
   const vendorSet = uniqueSorted(pendingReceiveSummary.map(e => e.vendor));
-  logHistory('receive', `Received ${pendingReceiveSummary.length} item(s) (${vendorSet.join(', ')})`, {
+  const mismatchItems = pendingReceiveSummary.filter(e => e.buyerClaimed > 0 && e.diff !== 0);
+  const summarySuffix = mismatchItems.length > 0 ? ` · 🚨 ${mismatchItems.length} Buyer Mismatch(es)` : '';
+
+  logHistory('receive', `Received ${pendingReceiveSummary.length} item(s) (${vendorSet.join(', ')})${summarySuffix}`, {
     vendors: vendorSet,
+    mismatchCount: mismatchItems.length,
     items: pendingReceiveSummary.map(e => ({
       id: e.id, name: e.name, vendor: e.vendor, unit: e.unit,
-      oldStock: e.oldStock, bought: e.bought, newStock: e.newStock,
-      need: e.need, remaining: e.remaining, boughtBy: e.boughtBy
+      oldStock: e.oldStock, bought: e.bought, buyerClaimed: e.buyerClaimed, diff: e.diff,
+      newStock: e.newStock, need: e.need, remaining: e.remaining,
+      boughtBy: e.boughtBy, checkedBy: e.checkedBy
     }))
   });
 
@@ -1460,12 +1678,12 @@ async function confirmReceiveToStock() {
   if (sendTg) await sendBuyerReceiptTelegram(pendingReceiveSummary);
 
   showToast(partialCount > 0
-    ? `Updated ${pendingReceiveSummary.length} items (${partialCount} partial kept)`
-    : `Updated ${pendingReceiveSummary.length} items into stock!`, 'success', 4000);
+    ? `Received ${pendingReceiveSummary.length} item(s) (${partialCount} remainder kept)`
+    : `Received ${pendingReceiveSummary.length} item(s) into stock!`, mismatchItems.length > 0 ? 'warning' : 'success', 4000);
   pendingReceiveSummary = [];
 }
 
-/* 13. History View & Manager Undo */
+/* 13. Manager-Only History View & Undo */
 function populateHistoryUserFilter() {
   const sel = document.getElementById('historyUserFilter');
   if (!sel) return;
@@ -1509,6 +1727,7 @@ function getFilteredHistory(rangeOverride = null, vendorOverride = null) {
 function historyBadgeMeta(type) {
   switch (type) {
     case 'receive': return { cls: 'hb-receive', label: 'Received' };
+    case 'verify_item': return { cls: 'hb-receive', label: 'Verified' };
     case 'order_sent': return { cls: 'hb-order', label: 'Order Sent' };
     case 'buyer_report': return { cls: 'hb-order', label: 'Buyer Report' };
     case 'bought_edit': return { cls: 'hb-receive', label: 'Bought Edit' };
@@ -1519,17 +1738,17 @@ function historyBadgeMeta(type) {
 }
 
 function renderHistory() {
+  if (!isManager()) return;
   const container = document.getElementById('historyList');
   if (!container) return;
   const list = getFilteredHistory();
-  const mgr = isManager();
 
   if (!list.length) {
     container.innerHTML = `
       <div style="text-align:center; padding:40px 16px; color:var(--text-muted); background:var(--card-bg); border-radius:14px; border:1px solid var(--border);">
         <div style="font-size:28px; margin-bottom:6px;">🕵️</div>
         <div style="font-weight:800; color:var(--text);">No activity logs match these filters yet</div>
-        <div style="font-size:12px; margin-top:4px;">Orders, stock adjustments, buyer edits, and receives are automatically tracked here.</div>
+        <div style="font-size:12px; margin-top:4px;">Orders, stock adjustments, buyer claims, verifications, and receives are logged here.</div>
       </div>
     `;
     return;
@@ -1544,14 +1763,17 @@ function renderHistory() {
         ${itemsList.map(it => {
           if (h.type === 'receive') {
             const shortTxt = it.remaining > 0 ? ` <span style="color:#B45309;">(Short ${it.remaining})</span>` : '';
-            return `<div>• <strong>${escapeHtml(it.name)}</strong> (${escapeHtml(it.vendor)}): +${it.bought} ${escapeHtml(it.unit)} → Stock ${it.oldStock} → <strong>${it.newStock}</strong>${shortTxt}</div>`;
+            const mismatchTxt = (it.buyerClaimed > 0 && it.diff !== 0)
+              ? ` <span style="color:var(--danger); font-weight:800;">[🚨 Buyer claimed ${it.buyerClaimed}, Rec'd ${it.bought}]</span>`
+              : '';
+            return `<div>• <strong>${escapeHtml(it.name)}</strong> (${escapeHtml(it.vendor)}): +${it.bought} ${escapeHtml(it.unit)} → Stock ${it.oldStock} → <strong>${it.newStock}</strong>${shortTxt}${mismatchTxt}</div>`;
           }
           return `<div>• <strong>${escapeHtml(it.name)}</strong> (${escapeHtml(it.vendor || '')}): ${it.qty || it.bought || 0} ${escapeHtml(it.unit || 'Units')}</div>`;
         }).join('')}
       </div>
     ` : '';
 
-    const undoHtml = (mgr && h.type === 'receive' && !h.undone && itemsList.length)
+    const undoHtml = (h.type === 'receive' && !h.undone && itemsList.length)
       ? `<button class="btn btn-danger-soft" style="padding:3px 8px; font-size:11px;" onclick="undoReceiveEvent('${h.id}')">↩️ Undo Receive</button>`
       : (h.undone ? `<span style="font-size:11px; color:var(--danger); font-weight:800;">Reversed</span>` : '');
 
@@ -1599,22 +1821,15 @@ function undoReceiveEvent(histId) {
 }
 
 function exportHistoryCsv() {
+  if (!isManager()) return;
   const list = getFilteredHistory();
   if (!list.length) { showToast('No history rows to export.', 'warning'); return; }
   const rows = [['Date', 'Staff', 'Role', 'Action', 'Summary']];
-  list.forEach(h => {
-    rows.push([
-      new Date(h.ts || 0).toISOString(),
-      h.actor || '',
-      h.actorRole || '',
-      h.type || '',
-      h.summary || ''
-    ]);
-  });
+  list.forEach(h => rows.push([new Date(h.ts || 0).toISOString(), h.actor || '', h.actorRole || '', h.type || '', h.summary || '']));
   downloadCsvFile(rows, `${PREFIX}history-${new Date().toISOString().slice(0, 10)}.csv`);
 }
 
-/* 14. Management & Buying Insights Reports */
+/* 14. Manager-Only Management & Buying Insights Reports */
 function computeReportMetrics() {
   const range = document.getElementById('reportRangeFilter')?.value || '30';
   const vendor = document.getElementById('reportVendorFilter')?.value || '';
@@ -1627,6 +1842,7 @@ function computeReportMetrics() {
   const itemStats = {};
   const vendorStats = {};
   const staffStats = {};
+  const discrepancyEvents = [];
   let totalBought = 0;
   let totalNeeded = 0;
 
@@ -1646,10 +1862,16 @@ function computeReportMetrics() {
       totalBought += bought;
       totalNeeded += need;
 
-      const key = it.id || it.name;
-      if (!itemStats[key]) {
-        itemStats[key] = { id: it.id, name: it.name, vendor: it.vendor, unit: it.unit || 'Units', bought: 0, needed: 0, runs: 0, shorts: 0 };
+      if (it.buyerClaimed > 0 && it.diff !== 0) {
+        discrepancyEvents.push({
+          ts: ev.ts, name: it.name, vendor: it.vendor,
+          buyerClaimed: it.buyerClaimed, recQty: bought, diff: it.diff,
+          buyer: it.boughtBy || 'Buyer', checker: it.checkedBy || ev.actor
+        });
       }
+
+      const key = it.id || it.name;
+      if (!itemStats[key]) itemStats[key] = { id: it.id, name: it.name, vendor: it.vendor, unit: it.unit || 'Units', bought: 0, needed: 0, runs: 0, shorts: 0 };
       itemStats[key].bought += bought;
       itemStats[key].needed += need;
       itemStats[key].runs++;
@@ -1666,10 +1888,7 @@ function computeReportMetrics() {
 
   const mostBought = Object.values(itemStats).sort((a, b) => b.bought - a.bought || b.runs - a.runs);
   const leastBought = skuPool
-    .map(s => ({
-      id: s.id, name: s.name, vendor: s.vendor, stock: s.stock, min: s.min, max: s.max,
-      bought: itemStats[s.id]?.bought || 0, runs: itemStats[s.id]?.runs || 0
-    }))
+    .map(s => ({ id: s.id, name: s.name, vendor: s.vendor, stock: s.stock, min: s.min, max: s.max, bought: itemStats[s.id]?.bought || 0, runs: itemStats[s.id]?.runs || 0 }))
     .sort((a, b) => a.bought - b.bought || b.stock - a.stock);
 
   const shortItems = Object.values(itemStats)
@@ -1680,34 +1899,30 @@ function computeReportMetrics() {
   mostBought.forEach(st => {
     const sku = skus.find(s => s.id === st.id);
     if (!sku) return;
-    if (sku.max === 0) {
-      parSuggestions.push({ name: sku.name, vendor: sku.vendor, type: 'Set Par', detail: `Bought ${st.bought} across ${st.runs} run(s) with Min/Max still 0/0.` });
-    } else if (st.runs >= 3 && st.bought > sku.max * 2) {
-      parSuggestions.push({ name: sku.name, vendor: sku.vendor, type: 'Raise Max', detail: `Ordered ${st.runs} times (${st.bought} bought). Consider raising Max above ${sku.max}.` });
-    }
+    if (sku.max === 0) parSuggestions.push({ name: sku.name, vendor: sku.vendor, type: 'Set Par', detail: `Bought ${st.bought} across ${st.runs} run(s) with Min/Max still 0/0.` });
+    else if (st.runs >= 3 && st.bought > sku.max * 2) parSuggestions.push({ name: sku.name, vendor: sku.vendor, type: 'Raise Max', detail: `Ordered ${st.runs} times (${st.bought} bought). Raise Max above ${sku.max}.` });
   });
   skuPool.forEach(s => {
     if (s.max > 0 && s.stock >= s.max * 1.5 && !(itemStats[s.id]?.bought > 0)) {
-      parSuggestions.push({ name: s.name, vendor: s.vendor, type: 'Overstocked', detail: `Stock (${s.stock}) is above Max (${s.max}) with 0 buys in period.` });
+      parSuggestions.push({ name: s.name, vendor: s.vendor, type: 'Overstocked', detail: `Stock (${s.stock}) is above Max (${s.max}) with 0 buys.` });
     }
   });
 
-  const lowCount = skuPool.filter(s => s.min > 0 && s.stock <= s.min).length;
-  const noParCount = skuPool.filter(s => s.min === 0 && s.max === 0).length;
-  const photoCount = skuPool.filter(s => (itemPhotos[s.id] || []).length > 0).length;
-  const fulfillRate = totalNeeded > 0 ? Math.round((totalBought / totalNeeded) * 100) : 100;
-
   return {
     range, vendor, skuPool, receiveEvents, orderEvents, totalBought, totalNeeded,
-    fulfillRate, mostBought, leastBought, shortItems,
+    fulfillRate: totalNeeded > 0 ? Math.round((totalBought / totalNeeded) * 100) : 100,
+    mostBought, leastBought, shortItems, discrepancyEvents,
     vendorList: Object.values(vendorStats).sort((a, b) => b.bought - a.bought),
     parSuggestions: parSuggestions.slice(0, 12),
     staffList: Object.entries(staffStats).map(([name, s]) => ({ name, ...s })),
-    lowCount, noParCount, photoCount
+    lowCount: skuPool.filter(s => s.min > 0 && s.stock <= s.min).length,
+    noParCount: skuPool.filter(s => s.min === 0 && s.max === 0).length,
+    photoCount: skuPool.filter(s => (itemPhotos[s.id] || []).length > 0).length
   };
 }
 
 function renderReports() {
+  if (!isManager()) return;
   const container = document.getElementById('reportsContent');
   if (!container) return;
   const m = computeReportMetrics();
@@ -1716,22 +1931,19 @@ function renderReports() {
 
   const emptyNotice = m.receiveEvents.length === 0 ? `
     <div style="background:var(--primary-light); border:1px solid rgba(217,107,39,0.28); color:var(--primary-dark); padding:11px 14px; border-radius:12px; font-size:12.5px; font-weight:600; margin-bottom:12px;">
-      📊 Buying velocity charts start filling automatically once your team completes its first <strong>Receive Stock</strong> run! Catalog Health &amp; Dead Stock insights are already live below.
+      📊 Buying velocity &amp; audit charts populate once your team completes a <strong>Receive</strong> run. Catalog Health &amp; Dead Stock insights are already live below.
     </div>
   ` : '';
 
-  const topHtml = m.mostBought.length ? m.mostBought.slice(0, 10).map(it => {
-    const pct = Math.max(6, Math.round((it.bought / maxTop) * 100));
-    return `
-      <div class="bar-row">
-        <div class="bar-row-head">
-          <span>${escapeHtml(it.name)} <span style="font-weight:500; color:var(--text-muted);">(${escapeHtml(it.vendor)})</span></span>
-          <span>${it.bought} ${escapeHtml(it.unit)} · ${it.runs}x</span>
-        </div>
-        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+  const topHtml = m.mostBought.length ? m.mostBought.slice(0, 10).map(it => `
+    <div class="bar-row">
+      <div class="bar-row-head">
+        <span>${escapeHtml(it.name)} <span style="font-weight:500; color:var(--text-muted);">(${escapeHtml(it.vendor)})</span></span>
+        <span>${it.bought} ${escapeHtml(it.unit)} · ${it.runs}x</span>
       </div>
-    `;
-  }).join('') : '<div style="font-size:12.5px; color:var(--text-muted);">No received purchases in this period yet.</div>';
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(6, Math.round((it.bought / maxTop) * 100))}%"></div></div>
+    </div>
+  `).join('') : '<div style="font-size:12.5px; color:var(--text-muted);">No received purchases in this period yet.</div>';
 
   const leastHtml = m.leastBought.slice(0, 12).map(it => `
     <div style="display:flex; justify-content:space-between; font-size:12px; padding:5px 0; border-bottom:1px solid #F2EDE4; gap:8px;">
@@ -1753,10 +1965,11 @@ function renderReports() {
     `;
   }).join('') : '<div style="font-size:12.5px; color:var(--text-muted);">No vendor runs logged yet.</div>';
 
-  const shortHtml = m.shortItems.length ? m.shortItems.slice(0, 8).map(it => {
-    const rate = it.needed > 0 ? Math.round((it.bought / it.needed) * 100) : 100;
-    return `<div style="font-size:12px; padding:4px 0; border-bottom:1px solid #F2EDE4;"><strong>${escapeHtml(it.name)}</strong> (${escapeHtml(it.vendor)}): Short ${it.shorts}x · ${rate}% fulfilled (${it.bought}/${it.needed})</div>`;
-  }).join('') : '<div style="font-size:12.5px; color:var(--text-muted);">No recurring store shortages recorded.</div>';
+  const auditHtml = m.discrepancyEvents.length ? m.discrepancyEvents.slice(0, 10).map(d => `
+    <div style="font-size:12px; padding:6px 8px; background:var(--danger-light); border-radius:8px; color:#991B1B; font-weight:600;">
+      🚨 <strong>${escapeHtml(d.name)}</strong> (${escapeHtml(d.vendor)}): Buyer (${escapeHtml(d.buyer)}) claimed <strong>${d.buyerClaimed}</strong>, ${escapeHtml(d.checker)} verified <strong>${d.recQty}</strong> (${d.diff > 0 ? '+' : ''}${d.diff}) · ${formatShortTime(d.ts)}
+    </div>
+  `).join('') : '<div style="font-size:12.5px; color:#065F46; font-weight:700;">✅ Zero Buyer-vs-Leader count discrepancies in this period.</div>';
 
   const parHtml = m.parSuggestions.length ? m.parSuggestions.map(p => `
     <div style="font-size:12px; padding:5px 8px; background:var(--bg); border-radius:8px; border:1px solid var(--border);">
@@ -1775,12 +1988,17 @@ function renderReports() {
     ${emptyNotice}
     <div class="kpi-grid">
       <div class="kpi-card"><div class="kpi-value">${m.totalBought}</div><div class="kpi-label">Units Bought</div></div>
-      <div class="kpi-card"><div class="kpi-value">${m.receiveEvents.length} / ${m.orderEvents.length}</div><div class="kpi-label">Receives / Orders</div></div>
+      <div class="kpi-card"><div class="kpi-value" style="color:${m.discrepancyEvents.length ? 'var(--danger)' : 'var(--success)'};">${m.discrepancyEvents.length}</div><div class="kpi-label">Count Mismatches</div></div>
       <div class="kpi-card"><div class="kpi-value" style="color:var(--success);">${m.fulfillRate}%</div><div class="kpi-label">Fill Rate</div></div>
       <div class="kpi-card"><div class="kpi-value" style="color:var(--secondary);">${m.lowCount} / ${photoPct}%</div><div class="kpi-label">Low Stock / Photos</div></div>
     </div>
 
     <div class="report-grid">
+      <div class="report-card">
+        <div class="report-card-title"><span>🚨 Buyer vs. Delivery Audit</span><span style="font-size:11px; color:var(--text-muted);">Anti-Theft Log</span></div>
+        ${auditHtml}
+      </div>
+
       <div class="report-card">
         <div class="report-card-title"><span>🔥 Most-Bought Items</span><span style="font-size:11px; color:var(--text-muted);">Top 10</span></div>
         ${topHtml}
@@ -1792,16 +2010,11 @@ function renderReports() {
       </div>
 
       <div class="report-card">
-        <div class="report-card-title"><span>🏪 Vendor Activity &amp; Reliability</span></div>
+        <div class="report-card-title"><span>🏪 Vendor Activity &amp; Par Insights</span><span style="font-size:11px; color:var(--text-muted);">${m.noParCount} at 0/0</span></div>
         ${vendorHtml}
-        <div style="font-size:12px; font-weight:800; margin-top:6px;">⚠️ Frequent Shortages</div>
-        ${shortHtml}
-      </div>
-
-      <div class="report-card">
-        <div class="report-card-title"><span>🎯 Smart Par &amp; Catalog Health</span><span style="font-size:11px; color:var(--text-muted);">${m.noParCount} at 0/0</span></div>
+        <div style="font-size:12px; font-weight:800; margin-top:4px;">🎯 Par Recommendations</div>
         ${parHtml}
-        <div style="font-size:12px; font-weight:800; margin-top:6px;">👥 Team Activity</div>
+        <div style="font-size:12px; font-weight:800; margin-top:4px;">👥 Team Activity</div>
         ${staffHtml}
       </div>
     </div>
@@ -1809,6 +2022,7 @@ function renderReports() {
 }
 
 function exportReportCsv() {
+  if (!isManager()) return;
   const m = computeReportMetrics();
   const rows = [['Item', 'Vendor', 'Units Bought', 'Buying Runs', 'Units Needed', 'Shortages', 'Current Stock', 'Min', 'Max']];
   m.skuPool.forEach(s => {
@@ -1829,15 +2043,15 @@ function downloadCsvFile(rows, filename) {
 }
 
 async function sendReportSummaryTelegram() {
-  if (!isLeaderOrManager()) return;
+  if (!isManager()) return;
   if (!botToken || !chatId) { showToast('Configure Telegram settings first.', 'warning'); return; }
   const m = computeReportMetrics();
   const topLines = m.mostBought.slice(0, 5).map((x, i) => `${i + 1}. *${escapeTgMarkdown(x.name)}* — ${x.bought} ${escapeTgMarkdown(x.unit)} (${x.runs}x)`).join('\n') || '_No buys recorded yet_';
   const label = m.range === 'all' ? 'All Time' : `Last ${m.range} Days`;
 
   const text = `📊 *${escapeTgMarkdown(CFG.appName || 'Swirla Café')} — Management Summary (${label})*\n` +
-    `• *Units Bought:* ${m.totalBought}\n` +
-    `• *Fill Rate:* ${m.fulfillRate}%\n` +
+    `• *Units Bought:* ${m.totalBought} | *Fill Rate:* ${m.fulfillRate}%\n` +
+    `• *Count Mismatches:* ${m.discrepancyEvents.length}\n` +
     `• *Low Stock Items:* ${m.lowCount} | *Missing Pars (0/0):* ${m.noParCount}\n\n` +
     `🔥 *Top 5 Most-Bought:*\n${topLines}\n\n_Generated by ${escapeTgMarkdown(currentUser.name)}_`;
 
@@ -1847,7 +2061,7 @@ async function sendReportSummaryTelegram() {
 /* 15. Telegram Dispatch */
 async function postTelegramMessage(text) {
   if (!botToken || !chatId) {
-    showToast('Telegram not configured. Manager: tap ✈️ Setup Telegram to set Token & Chat ID.', 'warning', 4500);
+    showToast('Telegram not configured. Manager: tap ✈️ Telegram to set Token & Chat ID.', 'warning', 4500);
     return false;
   }
   try {
@@ -1946,10 +2160,13 @@ async function dispatchBuyerReport() {
 async function sendBuyerReceiptTelegram(entries) {
   if (!botToken || !chatId || !entries.length) return;
   let text = `📦 *${escapeTgMarkdown(CFG.appName || 'Swirla Café')} — Received into Stock*\n`;
-  text += `👤 *Approved by:* ${escapeTgMarkdown(currentUser.name)}\n📅 *${formatShortTime(Date.now())}*\n\n`;
+  text += `👤 *Verified by:* ${escapeTgMarkdown(currentUser.name)}\n📅 *${formatShortTime(Date.now())}*\n\n`;
   entries.forEach(e => {
     const statusText = e.remaining > 0 ? `⚠️ *+${e.bought} ${escapeTgMarkdown(e.unit)}* (Short ${e.remaining})` : `✅ *+${e.bought} ${escapeTgMarkdown(e.unit)}*`;
     text += `• *${escapeTgMarkdown(e.name)}* (${escapeTgMarkdown(e.vendor)}) — ${statusText} → Stock: *${e.newStock}*\n`;
+    if (e.buyerClaimed > 0 && e.diff !== 0) {
+      text += `   🚨 _MISMATCH: Buyer claimed ${e.buyerClaimed}, Verified ${e.bought} (${e.diff > 0 ? '+' : ''}${e.diff})_\n`;
+    }
   });
   await postTelegramMessage(text);
 }
